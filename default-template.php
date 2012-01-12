@@ -7,9 +7,9 @@
 
 <?php the_post() ?>
 
-\date{<?php h2l( get_the_date() ) ?>}
-\title{<?php h2l( get_the_title() ) ?>}
-\author{<?php h2l( get_the_author() ) ?>}
+\date{<?php lt( get_the_date() ) ?>}
+\title{<?php lt( get_the_title() ) ?>}
+\author{<?php lt( get_the_author() ) ?>}
 
 \begin{document}
 

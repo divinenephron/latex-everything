@@ -33,6 +33,8 @@
  *                      $element (The DOMText object the text is from)
  */
 
+define( 'H2L_DEBUG', false );
+
 class A2l_Html_To_Latex {
     var $tags;
 
@@ -114,6 +116,8 @@ class A2l_Html_To_Latex {
                     // If the tag has a handler, send it to the handler.
                     $tag = $this->tags[$element->tagName];
                     $handler = $tag['handler'];
+                    if (H2L_DEBUG)
+                        error_log( "Sending {$element->tagName} tag to {$handler[1]} handler. \"{$element->textContent}\"" );
                     if ( is_callable( $handler ) ) {
                         $output .= apply_filters( "a2l_{$element->tagName}_element",
                                 call_user_func( $handler, $element, $tag['tex'] ),
@@ -126,9 +130,9 @@ class A2l_Html_To_Latex {
                     $output .= $this->_texify( $element );
                 }
             } else if ( $element->nodeType == XML_TEXT_NODE ) {
-                $output .= apply_filters( 'a2l_text',
-                        $element->wholeText,
-                        $element );
+                if ( H2L_DEBUG )
+                    error_log( "Have text node: {$element->wholeText}" );
+                $output .= get_latex_text( $element->wholeText );
             } else if ( $element->nodeType == XML_DOCUMENT_NODE ) {
                 $output .= $this->_texify( $element );
 
@@ -285,8 +289,6 @@ class A2l_Html_To_Latex {
             return '';
 
     }
-
-
 }
 
 // API functions.
@@ -301,6 +303,16 @@ function get_html_to_latex ( $html ) {
     if ( empty ( $a2l_html_to_latex ) )
         $a2l_html_to_latex = new A2l_Html_To_Latex();
     return $a2l_html_to_latex->html_to_latex( $html );
+}
+
+function lt( $text ) {
+    latex_text( $text );
+}
+function latex_text( $text ) {
+    echo get_latex_text( $text );
+}
+function get_latex_text ( $text ) {
+    return apply_filters( 'a2l_latex_text', $text );
 }
 
 // Filters.
@@ -327,9 +339,9 @@ function float_filter ( $latex ) {
 }
 
 // Register filters
-add_filter('a2l_img_element', 'float_filter', 98);
-add_filter('a2l_table_element', 'float_filter', 98);
-add_filter('a2l_text', 'urlify_filter', 98);
-add_filter('a2l_text','quote_expansion_filter', 99);
+add_filter('a2l_img_element', 'float_filter' );
+add_filter('a2l_table_element', 'float_filter' );
+add_filter('a2l_latex_text', 'urlify_filter' );
+add_filter('a2l_latex_text','quote_expansion_filter' );
 
 ?>
