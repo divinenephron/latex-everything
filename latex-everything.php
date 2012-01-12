@@ -14,15 +14,6 @@
 //       templating and the "get latex stuff" API. You might also have to use WP-Cron more (more PDF 
 //       being written at once), and hence improve the error handling to actually save error messages.
 
-/*var $object_options = Array( 'post' => true,
-        'page' => false,
-        // need to allow for other post types too
-        'category' => false,
-        'tag' => false,
-        // need to allow for other categories too
-        );
-        */
-
 global $latex_everything;
 $latex_everything = new Latex_Everything;
 
@@ -30,14 +21,26 @@ $latex_everything = new Latex_Everything;
  */
 class Latex_Everything {
 
+    var $taxonomies;
+    var $post_types;
+
     function __construct () {
         register_activation_hook( __FILE__, array( $this, 'activate' ) );
         register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
-
+        
         add_action('save_post', array( $this, 'update_post' ) );
         add_action('le_activation', array( $this, 'update_post' ) );
+        add_action('init', array( $this, 'get_everything' ) );
 
         //add_action( 'admin_head', array( &$this, 'show_errors' ) );
+    }
+
+    function get_everything () {
+        // Find all entities you can generate stuff for
+        $this->taxonomies = get_taxonomies( '', 'names' );
+        $this->taxonomies = array_diff( $this->taxonomies, array( 'nav_menu', 'link_category', 'post_format' ) );
+        $this->post_types = get_post_types( '', 'names' );
+        $this->post_types = array_diff( $this->post_types, array( 'mediapage', 'attachment', 'revision', 'nav_menu_item' ) );
     }
     
     /* Create cron-jobs to re-create the pdf for every post.
@@ -63,18 +66,37 @@ class Latex_Everything {
 
     /*  Create a latex document for a post/taxonomy.
      */
-    function create_document ( $post_id ) {
+    function create_document ( $id, $taxonomy='' ) {
         // TODO: Re-do the error handling.
         include_once('latex-document.php');
-        $doc = new LE_Latex_Document( $post_id );
+        $doc = new LE_Latex_Document( $id, $taxonomy );
+        if ( is_wp_error( $doc ) ) {
+            error_log( "{$doc->get_error_code()}: {$doc->get_error_message()}" );
+            return;
+        }
         $error = $doc->generate();
+        if (is_wp_error( $error ) ) {
+            error_log( "{$error->get_error_code()}: {$error->get_error_message()}" );
+            return;
+        }
     }
 
     function update_post ( $post_id ) {
-        // TODO: Make this do stuff with other posts types / taxonomies.
-        if ( get_post_type( $post_id ) == 'post' && !wp_is_post_revision( $post_id ) ) {
-            $this->create_document( $post_id);
+        // Find out which entities are affected
+        if( in_array( get_post_type( $post_id ), $this->post_types ) ) {
+            $this->create_document( $post_id );
         }
+        /*
+        foreach( $this->taxonomies as $taxonomy ) {
+            if( $terms = get_the_terms( $post_id, $taxonomy ) ) {
+                if( is_wp_error( $terms ) )
+                    error_log( "{$terms->get_error_code()}: {$terms->get_error_message()}" );
+                else
+                    foreach( $terms as $term )
+                        $this->create_document( $term->term_id, $taxonomy );
+            }
+        }
+        */
     }
         /* If le_error is in the query, a previous post save created an error
          * for a post (the post ID is its value). Thus we need to re-run the

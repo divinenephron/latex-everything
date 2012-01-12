@@ -317,14 +317,14 @@ function get_latex_text ( $text ) {
 
 // Filters.
 // Run on html text nodes before output
-function quote_expansion_filter ( $text ) {
+function le_quote_expansion_filter ( $text ) {
     $text = preg_replace( '/([^\s\[\{\)~])"/', "$1''", $text );
     $text = preg_replace( '/"/', '``', $text );
     return $text;
 }
 
 // Run on html text nodes before output
-function urlify_filter ( $text ) {
+function le_urlify_filter ( $text ) {
     // Wraps urls in \url{}
     // Lovingly stolen from http://daringfireball.net/2010/07/improved_regex_for_matching_urls
     $pattern = '/(?i)\b((?:[a-z][\w-]+:(?:\/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))/';
@@ -333,15 +333,24 @@ function urlify_filter ( $text ) {
             $text );
 }
 
+// Replace special characters with the appropriate Latex macros.
+function le_special_char_filter ( $text ) {
+    $specials =     array(  '$',  '<',   '>',   '&',  '%',  '#',  '{',  '}',  '_' );
+    $replacements = array( '\$', '$<$', '$>$', '\&', '\%', '\#', '\{', '\}', '\_' );
+    $text = str_replace( '\\', '$\backslash$', $text );
+    $text = str_replace( $specials, $replacements, $text );
+    return $text;
+}
+
 // Run on <img> and <table> nodes before output
-function float_filter ( $latex ) {
+function le_float_filter ( $latex ) {
     return "\\begin{figure}[htbp]\n{$latex}\n\\end{figure}\n";
 }
 
 // Register filters
-add_filter('a2l_img_element', 'float_filter' );
-add_filter('a2l_table_element', 'float_filter' );
-add_filter('a2l_latex_text', 'urlify_filter' );
-add_filter('a2l_latex_text','quote_expansion_filter' );
-
+add_filter('a2l_img_element', 'le_float_filter' );
+add_filter('a2l_table_element', 'le_float_filter' );
+add_filter('a2l_latex_text', 'le_urlify_filter' );
+add_filter('a2l_latex_text', 'le_quote_expansion_filter' );
+add_filter('a2l_latex_text', 'le_special_char_filter' );
 ?>
