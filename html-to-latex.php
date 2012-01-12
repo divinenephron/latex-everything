@@ -17,10 +17,10 @@ class A2l_Html_To_Latex {
                 'center'     => Array ( 'handler' => 'environment', 'tex' => 'center'           ),
                 'code'       => Array ( 'handler' => 'environment', 'tex' => 'verbatim'         ),
                 'dd'         => Array ( 'handler' => 'other',       'tex' => Array( '',         
-                                                                                    "\n" )      ),
+                        "\n" )      ),
                 'dl'         => Array ( 'handler' => 'environment', 'tex' => 'description'      ),
                 'dt'         => Array ( 'handler' => 'other',       'tex' => Array( '\item',
-                                                                                    ']' )       ),
+                        ']' )       ),
                 'em'         => Array ( 'handler' => 'command',     'tex' => 'emph'             ),
                 'h1'         => Array ( 'handler' => 'command',     'tex' => 'section*'         ),
                 'h2'         => Array ( 'handler' => 'command',     'tex' => 'subsection*'      ),
@@ -30,17 +30,17 @@ class A2l_Html_To_Latex {
                 'h6'         => Array ( 'handler' => 'command',     'tex' => 'textbf'           ),
                 'hr'         => Array ( 'handler' => 'single',      'tex' => '\hline'           ),
                 'i'          => Array ( 'handler' => 'command',     'tex' => 'emph'             ),
-              //'img'        => Array ( 'handler' => 'image',       'tex' => 'includegraphics'  ),
+                //'img'        => Array ( 'handler' => 'image',       'tex' => 'includegraphics'  ),
                 'li'         => Array ( 'handler' => 'single',      'tex' => '\item'            ),
                 'ol'         => Array ( 'handler' => 'environment', 'tex' => 'enumerate'        ),
                 'p'          => Array ( 'handler' => 'single',      'tex' => "\n\n"             ),
                 'pre'        => Array ( 'handler' => 'environment', 'tex' => 'verbatim'         ),
                 'script'     => Array ( 'handler' => 'ignore',      'tex' => ''                 ),
                 'strong'     => Array ( 'handler' => 'command',     'tex' => 'textbf'           ),
-              //'table'      => Array ( 'handler' => 'table',       'tex' => 'table'            ),
-              //'td'         => Array ( 'handler' => 'table',       'tex' => 'tr'               ),
+                'table'      => Array ( 'handler' => 'table',       'tex' => 'table'            ),
+                'td'         => Array ( 'handler' => 'table',       'tex' => 'tr'               ),
                 'title'      => Array ( 'handler' => 'command',     'tex' => 'title'            ),
-              //'tr'         => Array ( 'handler' => 'table',       'tex' => 'td'               ),
+                'tr'         => Array ( 'handler' => 'table',       'tex' => 'td'               ),
                 'ul'         => Array ( 'handler' => 'environment', 'tex' => 'itemize'          ),
                 );
         $this->tags = apply_filters( 'a2l_tags', $this->tags );
@@ -125,53 +125,124 @@ class A2l_Html_To_Latex {
         return '';
     }
 
-    /*
-       function _table_handler( $element, $tex ) {
-       $output = '';
-       if ( $tex == 'table' ) {
-       $output = _create_latex_table( $element );
-       } else {
-// It's a tr or td. Create_latex_table does all of the work,
-// so we just output the texified content.
-$output = $this->_texify( $element );
-}
-return $output;
-}
+    function _table_handler( $element, $tex ) {
+        $output = '';
+        if ( $tex == 'table' ) {
+            $output = $this->_create_latex_table( $element );
+        } else {
+            // It's a tr or td. Create_latex_table does all of the work,
+            // so we just output the texified content.
+            $output = $this->_texify( $element );
+        }
+        return $output;
+    }
+
+    function _create_latex_table( $table ) {
+        $output = '';
+
+        // Find the size of the table
+        $rows = $table->getElementsByTagName('tr');
+        $row_count = $rows->length;
+
+        $column_count = 0;
+        foreach( $rows as $row ) {
+            $columns = $this->_get_tr_columns( $row );
+            if( $columns->length > $column_count )
+                $column_count = $columns->length;
+        }
+
+        // Create column alignments for every column based on the first row
+        $column_alignments = '';
+        if( $row = $rows->item(0) ) {
+            $columns = $this->_get_tr_columns( $row );
+            for( $c = 0; $c < $column_count; ++$c ) {
+                $column = $columns->item( $c );
+                if( $column ) {
+                    $align = $column->getAttribute( 'align' );
+                    if( $align == 'right' )
+                        $align = 'r';
+                    else if( $align == 'center' )
+                        $align = 'c';
+                    else
+                        $align = 'l';
+                } else { // No colums at this index on the first row, so repeat alignments
+                    $align = substr( $column_alignments, -1 ) or $align = 'l';
+                }
+                $column_alignments .= $align;
+            }
+        }
+
+        $output .= "\n\n\\begin{tabular}{{$column_alignments}}\n";
+        $output .= "\\hline\n";
+        
+        for( $r = 0; $r < $row_count; ++$r ) {
+            $row = $rows->item( $r );
+            $columns = $this->_get_tr_columns( $row );
+            for ( $c = 0; $c < $column_count; ++$c ) {
+                $column = $columns->item( $c );
+                // Write the contents
+                if ( $column )
+                    $output .= "{$this->_texify( $column )} ";
+                // Add punctuation between columns when not the last one
+                if( $c < $column_count - 1 )
+                    $output .= "& ";
+            }
+            // Add punctuation at the end of the row
+            $output .= "\\\\\n";
+            // Add lines under header rows
+            if ( $column && $column->tagName == 'th' )
+                $output .= "\\hline\n";
+        }
+
+        $output .= "\\hline\n";
+        $output .= "\\end{tabular}\n\n";
+
+        return $output;
+    }
+
+    /* Returns the column from a <tr> element, regardless of whether
+     * they're <td> or <th> elements
      */
+    function _get_tr_columns( $row ) {
+        $columns = $row->getElementsByTagName('th');
+        if ($columns->length == 0)
+            $columns = $row->getElementsByTagName('td');
+        return $columns;
+    }
 
-/* HTML:    <img src="bar.png">
- * Latex:   \includegraphic{bar.png}
- */
-/*function _image_handler( $element, $tex ) {
-  $source = _locate_image( $element->getAttribute( 'src' ) );
-  $alt = $element->getAttribute( 'alt' );
+    /* HTML:    <img src="bar.png">
+     * Latex:   \includegraphic{bar.png}
+     */
+    /*
+    function _image_handler( $element, $tex ) {
+        $source = $this->_locate_image( $element->getAttribute( 'src' ) );
+        $alt = $element->getAttribute( 'alt' );
 
-  if ( $source ) {
-  return "\\{$tex}{{$soruce}}";
-  } else {
-// Image couldn't be found
-return $alt;
-}
+        if ( $source ) {
+            return "\\{$tex}{{$soruce}}";
+        } else {
+            // Image couldn't be found
+            return $alt;
+        }
+    }
+    */
 
-}
- */
+    // Run on html text nodes before output
+    function quote_expansion_filter ( $text ) {
+        $text = preg_replace( '/([^\s\[\{\)~])"/', "$1''", $text );
+        $text = preg_replace( '/"/', '``', $text );
+        return $text;
+    }
 
-// Run on html text nodes before output
-function quote_expansion_filter ( $text ) {
-    $text = preg_replace( '/([^\s\[\{\)~])"/', "$1''", $text );
-    $text = preg_replace( '/"/', '``', $text );
-    return $text;
-}
-
-// Run on html text nodes before output
-function urlify_filter ( $text ) {
-    // Wraps urls in \url{}
-    // Lovingly stolen from http://daringfireball.net/2010/07/improved_regex_for_matching_urls
-    $pattern = '/(?i)\b((?:[a-z][\w-]+:(?:\/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))/';
-    return preg_replace( $pattern,
-                         '\url{$0}',
-                         $text );
-}
+    // Run on html text nodes before output
+    function urlify_filter ( $text ) {
+        // Wraps urls in \url{}
+        // Lovingly stolen from http://daringfireball.net/2010/07/improved_regex_for_matching_urls
+        $pattern = '/(?i)\b((?:[a-z][\w-]+:(?:\/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))/';
+        return preg_replace( $pattern,
+                '\url{$0}',
+                $text );
+    }
 }
 
 // API functions.
