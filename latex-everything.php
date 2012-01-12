@@ -10,9 +10,7 @@
  */
 
 // TODO: Make documentation of API and install process.
-// TODO: Extend generation to object other than posts - pages? categories? You'd just need to extend the
-//       templating and the "get latex stuff" API. You might also have to use WP-Cron more (more PDF 
-//       being written at once), and hence improve the error handling to actually save error messages.
+// TODO: Oh fsck, Latex wasn't supposed to typeset multiple papers. Find a way around it. Probably just typset the buggers seperately and glueing them together with combine.
 
 global $latex_everything;
 $latex_everything = new Latex_Everything;
@@ -86,7 +84,6 @@ class Latex_Everything {
         if( in_array( get_post_type( $post_id ), $this->post_types ) ) {
             $this->create_document( $post_id );
         }
-        /*
         foreach( $this->taxonomies as $taxonomy ) {
             if( $terms = get_the_terms( $post_id, $taxonomy ) ) {
                 if( is_wp_error( $terms ) )
@@ -96,7 +93,6 @@ class Latex_Everything {
                         $this->create_document( $term->term_id, $taxonomy );
             }
         }
-        */
     }
         /* If le_error is in the query, a previous post save created an error
          * for a post (the post ID is its value). Thus we need to re-run the
