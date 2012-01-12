@@ -1,4 +1,37 @@
 <?php
+/* HTML-to-Latex
+ * -------------
+ * Use the functions html_to_latex() and get_html_to_latex() to convert HTML strings to Latex.
+ * This has been mostly based on html2latex.pm by Peter Thatcher (http://html2latex.sourceforge.net/).
+ *
+ * Filters
+ * -------
+ * a2l_tags             The tags array used to determine which handler function alter the
+ *                      Latex output. It take the form.
+ *                      Array( '<tag_name>' => Array ( 'handler' => <callback>,
+ *                                                     'tex' => <data for callback> ),
+ *                             '<tag_name>' => [...]
+ *                             );
+ *                      Tags that aren't in the tags array are ignored, while their children
+ *                      and the text inside them are printed.
+ *                      To create your own handler, just add, or change an entry in this array
+ *                      so that it points to your callback.
+ *                      Arguments:
+ *                      $tags (The default array of tags)
+ *
+ * a2l_<name>_element   Filters the latex generated for the specifed element just before
+ *                      it is added to the output for get_html_to_latex().
+ *                      Arguments:
+ *                      $latex (The Latex generated from the element)
+ *                      $element (The DOMElement object the Latex was generated from)
+ *
+ * a2l_text             Filters the text between HTML nodes just before it is added to the
+ *                      output for get_html_to_latex(). I use it to convert quote to latex
+ *                      style (``...'') and to detect urls.
+ *                      Arguments:
+ *                      $text (The text between HTML nodes)
+ *                      $element (The DOMText object the text is from)
+ */
 
 class A2l_Html_To_Latex {
     var $tags;
@@ -43,9 +76,17 @@ class A2l_Html_To_Latex {
                 'tr'         => Array ( 'handler' => 'table',       'tex' => 'td'               ),
                 'ul'         => Array ( 'handler' => 'environment', 'tex' => 'itemize'          ),
                 );
+        // Convert handlers to the form [$this, _<type>_handler].
+        foreach ( $this->tags as $tag => $value ) {
+            $handler = "_{$this->tags[$tag]['handler']}_handler";
+            $this->tags[$tag]['handler'] = Array( $this, $handler );
+        }
         $this->tags = apply_filters( 'a2l_tags', $this->tags );
     }
 
+    /* Function to convert an html string into Latex. Used by the get_html_to_latex()
+     * function.
+     */
     function html_to_latex ( $html_string ) {
 
         $doc = new DOMDocument();
@@ -59,6 +100,9 @@ class A2l_Html_To_Latex {
         return $latex;
     }
 
+    /* Iterates over the children of the node. Elements have their handlers called,
+     * (which usually print something then call texify again) while text is printed.
+     */
     function _texify ( $parent_element ) {
         $output = '';
 
@@ -69,9 +113,11 @@ class A2l_Html_To_Latex {
                 if ( array_key_exists( $element->tagName, $this->tags ) ) {
                     // If the tag has a handler, send it to the handler.
                     $tag = $this->tags[$element->tagName];
-                    $handler = "_{$tag['handler']}_handler";
-                    if ( method_exists( $this, $handler ) ) {
-                        $output .= $this->$handler( $element, $tag['tex'] );
+                    $handler = $tag['handler'];
+                    if ( is_callable( $handler ) ) {
+                        $output .= apply_filters( "a2l_{$element->tagName}_element",
+                                call_user_func( $handler, $element, $tag['tex'] ),
+                                $element );
                     } else {
                         $output .= $this->_texify( $element );
                     }
@@ -80,7 +126,9 @@ class A2l_Html_To_Latex {
                     $output .= $this->_texify( $element );
                 }
             } else if ( $element->nodeType == XML_TEXT_NODE ) {
-                $output .= apply_filters( 'a2l_text', $element->wholeText );
+                $output .= apply_filters( 'a2l_text',
+                        $element->wholeText,
+                        $element );
             } else if ( $element->nodeType == XML_DOCUMENT_NODE ) {
                 $output .= $this->_texify( $element );
 
@@ -137,6 +185,7 @@ class A2l_Html_To_Latex {
         return $output;
     }
 
+    /* Creates a Latex table from a <table> element. */
     function _create_latex_table( $table ) {
         $output = '';
 
@@ -174,7 +223,7 @@ class A2l_Html_To_Latex {
 
         $output .= "\n\n\\begin{tabular}{{$column_alignments}}\n";
         $output .= "\\hline\n";
-        
+
         for( $r = 0; $r < $row_count; ++$r ) {
             $row = $rows->item( $r );
             $columns = $this->_get_tr_columns( $row );
@@ -225,6 +274,9 @@ class A2l_Html_To_Latex {
         }
     }
 
+    /* Translates a url pointing to a local file into the local file's path.
+     * If the file doesn't exist on the server, returns an empty string.
+     */
     function _get_local_image( $src ) {
         $path = str_replace( site_url(), ABSPATH, $src );
         if( file_exists( $path ) )
@@ -253,13 +305,13 @@ class A2l_Html_To_Latex {
 }
 
 // API functions.
-global $a2l_html_to_latex;
-$a2l_html_to_latex = new A2l_Html_To_Latex();
 function html_to_latex ( $html ) {
     echo get_html_to_latex( $html );
 }
 function get_html_to_latex ( $html ) {
     global $a2l_html_to_latex;
+    if ( empty ( $a2l_html_to_latex ) )
+        $a2l_html_to_latex = new A2l_Html_To_Latex();
     return $a2l_html_to_latex->html_to_latex( $html );
 }
 
