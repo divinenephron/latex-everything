@@ -39,8 +39,8 @@ class Divinenephron_Article_To_Latex {
         // Unlink temporary files
         unlink( $this->latex_file );
         unlink( $this->pdf_file );
-        unlink( $this->html_file . '.aux' );
-        unlink( $this->html_file . '.log' );
+        unlink( $this->latex_file . '.aux' );
+        unlink( $this->latex_file . '.log' );
     }
 
     function create_pdf() {
@@ -228,7 +228,6 @@ function a2l_get_latex ( $html ) {
     if ( !$html_file = tempnam( sys_get_temp_dir(), 'a2l-' ) ) // Should fall back on system's temp dir if /tmp does not exist
         return new WP_Error( 'tempnam', 'Could not create temporary file.' );
     $dir = dirname( $html_file );
-    print $html;
 
     // Open and write the html the temporary file.
     if ( !$f = @fopen( $html_file, 'w' ) )
@@ -238,7 +237,7 @@ function a2l_get_latex ( $html ) {
     fclose($f);
 
     // Convert the temporary file to using html2latex.pl (the latex is put into its stdout)
-    $cmd = sprintf( 'cd %s; perl %s %s 2>&1', $dir, HTML_TO_LATEX_SCRIPT, $html_file );
+    $cmd = sprintf( 'cd %s; perl %s %s 2>/dev/null', $dir, HTML_TO_LATEX_SCRIPT, $html_file );
     exec( $cmd, $h2l_output, $v );
     $latex = implode( "\n", $h2l_output );
     if ( $v != 0 ) { // There was an error
