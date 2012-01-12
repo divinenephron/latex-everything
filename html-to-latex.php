@@ -30,7 +30,7 @@ class A2l_Html_To_Latex {
                 'h6'         => Array ( 'handler' => 'command',     'tex' => 'textbf'           ),
                 'hr'         => Array ( 'handler' => 'single',      'tex' => '\hline'           ),
                 'i'          => Array ( 'handler' => 'command',     'tex' => 'emph'             ),
-                //'img'        => Array ( 'handler' => 'image',       'tex' => 'includegraphics'  ),
+                'img'        => Array ( 'handler' => 'image',       'tex' => 'includegraphics'  ),
                 'li'         => Array ( 'handler' => 'single',      'tex' => '\item'            ),
                 'ol'         => Array ( 'handler' => 'environment', 'tex' => 'enumerate'        ),
                 'p'          => Array ( 'handler' => 'single',      'tex' => "\n\n"             ),
@@ -213,19 +213,26 @@ class A2l_Html_To_Latex {
     /* HTML:    <img src="bar.png">
      * Latex:   \includegraphic{bar.png}
      */
-    /*
     function _image_handler( $element, $tex ) {
-        $source = $this->_locate_image( $element->getAttribute( 'src' ) );
+        $source = $this->_get_local_image( $element->getAttribute( 'src' ) );
         $alt = $element->getAttribute( 'alt' );
 
         if ( $source ) {
-            return "\\{$tex}{{$soruce}}";
+            return "\\{$tex}{{$source}}";
         } else {
             // Image couldn't be found
             return $alt;
         }
     }
-    */
+
+    function _get_local_image( $src ) {
+        $path = str_replace( site_url(), ABSPATH, $src );
+        if( file_exists( $path ) )
+            return $path;
+        else
+            return '';
+
+    }
 
     // Run on html text nodes before output
     function quote_expansion_filter ( $text ) {
