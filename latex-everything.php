@@ -1,22 +1,56 @@
 <?php
 /*
    Plugin Name: Latex Everything
-   Plugin URI: 
-   Version: 0.1
+   Plugin URI: http://wordpress.org/extend/plugins/latex-everything
+   Version: 1.0
    Author: Divinenephron (Devon Buchanan)
    Author URI: http://divinenephron.co.uk
-   Description: 
-   License: GPL
+   Description: Produce PDF documents of everything on your site with Latex.
+   License: GPLv3
  */
-
-// TODO: Make documentation of API and install process.
 
 global $latex_everything;
 $latex_everything = new Latex_Everything;
 
-include('latex-post-types.php');
 include('latex-single-posts.php');
+include('latex-post-types.php');
 include('latex-terms.php');
+
+/* Latex_Everything
+ * - - - - - - - - 
+ *
+ * This class decides when to make documents and tells us where they are.
+ *
+ * LE_Latex_<type>_Controller
+ * - - - - - - - - - - - -
+ * These classes are used by Latex_Everything to decide which documents
+ * need to be created. There is one for each document type (post_type,
+ * term, single_post).
+ * 
+ * They are added to Latex_Everything with a function call, e.g.
+ *
+ *      global $latex_everything;
+ *      $latex_post_type_controller = new LE_Latex_Post_Type_Controller();
+ *      $latex_everything->add_controller( 'post_type', &$latex_post_type_controller );
+ *
+ * These controllers need to define certain methods to work
+ * 
+ * documents_for_post( $post_id )
+ *      Return an array of new documents. Latex_Everything will call generate() with them.
+ * 
+ * get_document( arg1, [$arg2] )
+ *      Return a single document object.
+ *
+ * get_settings()
+ *      Return an array containing the settings this controller cares about. It is in the form:
+ *      array( [0] => array( 'name' => "le_post_type_{$post_type}",
+ *                           'title' => "All {$post_type_obj->labels->name}" ),
+ *             [1] => ... );
+ *      Each 'name' index corresponds to a document the controller might generate (e.g. a document
+ *      containing a single post, all posts with a specific tag, or all posts of a custom type).
+ *      The user is able to activate or dactivate their generation with this setting, which should
+ *      be checked with in documents_for_post(). The 'title' index is a human-readable description.
+ */
 
 /* When the plugin is activated, create cron jobs to create the desired pdf.
  */

@@ -5,12 +5,6 @@ define( 'PLUGIN_DIR', plugin_dir_path( __FILE__ ) );            // Plugin direct
 include_once('html-to-latex.php'); // Include functions to convert html to latex.
 
 /*
- * get_posts
- * typeset_all_files
- * get_template
- * get_title
- * get_name
- * get_parent_post_id
  */
 
 /* LE_Latex_Document
@@ -42,7 +36,33 @@ include_once('html-to-latex.php'); // Include functions to convert html to latex
  *      Returns a direct link to the Latex pdf.
  *      Return: String containing the pdf url.
  *
+ * Methods that must be defined by LE_Latex_Document subclasses
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ *
+ * get_posts()
+ *      Return an array of post objects to be typset for the document.
+ *
+ * typeset_all_files()
+ *      Produce a single pdf file from the contents of $this->latex_files.
+ *      Return a string containing its path.
+ *
+ * get_template()
+ *      Return a string containing the path to the template to be used by
+ *      the document.
+ *
+ * get_title()
+ *      Return the title for the attachment (show on the attachment page and
+ *      on the admin screen).
+ *
+ * get_name()
+ *      Return the name of the attachment. This should be a slug. Used as the
+ *      PDF file's name.
+ *
+ * get_parent_post_id()
+ *      (optional) Return the id of the parent of the attachment, if this
+ *      attachment has one.
  */
+
 class LE_Latex_Document {
 
     var $pdflatex_path;
@@ -273,6 +293,10 @@ class LE_Latex_Document {
     function get_url() {
         return wp_get_attachment_url( $this->get_attachment_id() );
     }
+
+    function get_parent_post_id() {
+        return 0;
+    }
 }
 
 class LE_Latex_Multiple_Document extends LE_Latex_Document {
@@ -326,10 +350,6 @@ class LE_Latex_Multiple_Document extends LE_Latex_Document {
         if ( preg_match('/NumberOfPages: (\d+)/', $pdftk_output, $matches ) ){
             return (int) $matches[1];
         }
-        return 0;
-    }
-
-    function get_parent_post_id() {
         return 0;
     }
 }
