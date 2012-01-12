@@ -10,7 +10,9 @@
  */
 
 // TODO: Make documentation of API and install process.
-// TODO: Oh fsck, Latex wasn't supposed to typeset multiple papers. Find a way around it. Probably just typset the buggers seperately and glueing them together with combine.
+// TODO: Allow people to define what is Latexed.
+
+include('latex-document.php');
 
 global $latex_everything;
 $latex_everything = new Latex_Everything;
@@ -65,8 +67,6 @@ class Latex_Everything {
     /*  Create a latex document for a post/taxonomy.
      */
     function create_document ( $id, $taxonomy='' ) {
-        // TODO: Re-do the error handling.
-        include_once('latex-document.php');
         $doc = new LE_Latex_Document( $id, $taxonomy );
         if ( is_wp_error( $doc ) ) {
             error_log( "{$doc->get_error_code()}: {$doc->get_error_message()}" );
@@ -80,9 +80,13 @@ class Latex_Everything {
     }
 
     function update_post ( $post_id ) {
-        // Find out which entities are affected
-        if( in_array( get_post_type( $post_id ), $this->post_types ) ) {
-            $this->create_document( $post_id );
+        // TODO: Re-do the error handling.
+        $docs = array();
+
+        // Find out which entities are affected, and make a new document for them.
+        $post_type = get_post_type( $post_id );
+        if( in_array( $post_type, $this->post_types ) ) {
+            $docs[] = new LE_Latex_Single_Document( $post_id );
         }
         foreach( $this->taxonomies as $taxonomy ) {
             if( $terms = get_the_terms( $post_id, $taxonomy ) ) {
@@ -90,7 +94,18 @@ class Latex_Everything {
                     error_log( "{$terms->get_error_code()}: {$terms->get_error_message()}" );
                 else
                     foreach( $terms as $term )
-                        $this->create_document( $term->term_id, $taxonomy );
+                        $docs[] = new LE_Latex_Term_Document( $term, $taxonomy );
+            }
+        }
+
+        foreach ( $docs as $doc ) {
+            if ( is_wp_error( $doc ) ) {
+                error_log( "{$terms->get_error_code()}: {$terms->get_error_message()}" );
+                continue;
+            }
+            if ( $error = $doc->generate() ) {
+                error_log( "{$error->get_error_code()}: {$error->get_error_message()}" );
+                continue;
             }
         }
     }
