@@ -15,6 +15,6 @@
 
 \maketitle
 
-<?php a2l_latex( apply_filters('the_content',get_the_content( $more_link_text, $stripteaser, $more_file ))) ?>
+<?php html_to_latex( apply_filters('the_content',get_the_content( $more_link_text, $stripteaser, $more_file ))) ?>
 
 \end{document}

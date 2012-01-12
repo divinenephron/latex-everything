@@ -3,8 +3,8 @@
 Plugin Name: Article to Latex
 Plugin URI: 
 Version: 0.1
-Author: Devon Buchanan
-Author URI: 
+Author: Divinenephron (Devon Buchanan)
+Author URI: http://divinenephron.co.uk
 Description: 
 License: GPL
 */
@@ -16,11 +16,12 @@ License: GPL
  */
 
 define( 'PLUGIN_DIR', plugin_dir_path( __FILE__ ) );            // Plugin directory with trailing slash
-define( 'HTML_TO_LATEX_SCRIPT', PLUGIN_DIR . 'html2latex.pl' );
 define( 'PDFLATEX', '/usr/texbin/pdflatex' );
 
+include('html-to-latex.php'); // Include functions to convert html to latex.
 
-class Divinenephron_Article_To_Latex {
+
+class A2l_Article_To_Latex {
 
     var $post;
 
@@ -83,9 +84,17 @@ class Divinenephron_Article_To_Latex {
         $dir = dirname( $this->latex_file );
 
         // Open and write the latex the temporary file.
-	if ( !$f = @fopen( $this->latex_file, 'w' ) )
+        if ( !WP_DEBUG )
+            $f = @fopen( $this->latex_file, 'w' );
+        else
+            $f = fopen( $this->latex_file, 'w' );
+	if ( !$f )
 		return new WP_Error( 'fopen', 'Could not open temporary file for writing' );
-	if ( false === @fwrite($f, $latex) )
+        if ( ! WP_DEBUG )
+            $w = @fwrite($f, $latex);
+        else
+            $w = fwrite($f, $latex);
+	if ( !$w )
 		return new WP_Error( 'fwrite', 'Could not write to temporary file' );
 	fclose($f);
 
@@ -98,12 +107,14 @@ class Divinenephron_Article_To_Latex {
             $template = PLUGIN_DIR . 'default-template.php';
         }
         return $template;
-        // TODO: Add a default template in the plugin directory.
     }
     
     function latex_file_to_pdf_file () {
         $tmp_file = tempnam( '/tmp', 'atl'); // Falls back on system temp dir
         $dir = dirname( $this->latex_file );
+
+        // Tell Latex to search in the theme directory for class/style files.
+        putenv('TEXINPUTS=.:' . get_stylesheet_directory() . ':' . get_template_directory() . ':');
         $cmd = sprintf( 'cd %s; %s --interaction=nonstopmode %s 2>&1', $dir, PDFLATEX, $this->latex_file);
 
         exec( $cmd, $latex_output, $v );
@@ -190,7 +201,7 @@ class Divinenephron_Article_To_Latex {
 function a2l_save_post ( $post_id ) {
     if ( get_post_type( $post_id ) == 'post' && !wp_is_post_revision( $post_id ) ) {
         global $a2l;
-        $a2l = new Divinenephron_Article_To_Latex( $post_id );
+        $a2l = new A2l_Article_To_Latex( $post_id );
         $a2l->create_pdf();
     }
 }
@@ -205,46 +216,11 @@ function a2l_show_errors () {
     if ( isset( $_GET['a2l_error'] ) ) {
         $post_id = $_GET[ 'a2l_error' ];
         global $a2l;
-        $a2l = new Divinenephron_Article_To_Latex( $post_id );
+        $a2l = new A2l_Article_To_Latex( $post_id );
         $a2l->create_pdf();
     }
 }
 add_action( 'admin_head', 'a2l_show_errors' );
 
 
-/* Helper functions that converts html (e.g. from the_content() ) into LaTeX.
- */
-function a2l_latex ( $html ) {
-        $latex = a2l_get_latex( $html );
-        if ( is_wp_error( $latex ) ) {
-            print "Error: {$latex->get_error_message()}";
-        } else {
-            print $latex;
-        }
-}
 
-function a2l_get_latex ( $html ) {
-    // Get the name of a temporary file.
-    if ( !$html_file = tempnam( sys_get_temp_dir(), 'a2l-' ) ) // Should fall back on system's temp dir if /tmp does not exist
-        return new WP_Error( 'tempnam', 'Could not create temporary file.' );
-    $dir = dirname( $html_file );
-
-    // Open and write the html the temporary file.
-    if ( !$f = @fopen( $html_file, 'w' ) )
-    	return new WP_Error( 'fopen', 'Could not open temporary file for writing' );
-    if ( false === @fwrite($f, $html) )
-    	return new WP_Error( 'fwrite', 'Could not write to temporary file' );
-    fclose($f);
-
-    // Convert the temporary file to using html2latex.pl (the latex is put into its stdout)
-    $cmd = sprintf( 'cd %s; perl %s %s 2>/dev/null', $dir, HTML_TO_LATEX_SCRIPT, $html_file );
-    exec( $cmd, $h2l_output, $v );
-    $latex = implode( "\n", $h2l_output );
-    if ( $v != 0 ) { // There was an error
-        return new WP_Error('html2latex.pl', $latex);
-    }
-
-    unlink( $html_file );
-
-    return $latex;
-}
