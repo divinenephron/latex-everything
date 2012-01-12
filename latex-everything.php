@@ -10,9 +10,7 @@
  */
 
 // TODO: Make documentation of API and install process.
-// TODO: Allow access to the post_type and term pdfs.
-// TODO: Use wp-cron to trigger the generation of some stuff, since php is running out of memory.
-// TODO: Allow people to define what is Latexed.
+// TODO: Update the API to allow access to the taxonomy and post_type pdfs.
 
 
 include('latex-document.php');
@@ -24,31 +22,27 @@ $latex_everything = new Latex_Everything;
  */
 class Latex_Everything {
 
-    var $taxonomies;
-    var $post_types;
-
     function __construct () {
-        register_activation_hook( __FILE__, array( $this, 'activate' ) );
-        register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
+        register_activation_hook( __FILE__, array( &$this, 'activate' ) );
+        register_deactivation_hook( __FILE__, array( &$this, 'deactivate' ) );
         
-        add_action('save_post', array( $this, 'update_post' ) );
-        add_action('le_activation', array( $this, 'update_post' ) );
-        add_action('init', array( $this, 'get_everything' ) );
+        add_action('save_post', array( &$this, 'update_post' ) );
+        add_action('le_activation', array( &$this, 'update_post' ) );
 
-        //add_action( 'admin_head', array( &$this, 'show_errors' ) );
+        add_action('admin_init', array( &$this, 'settings_api_init' ) );
+
     }
 
-    function get_everything () {
-        // Find all entities you can generate stuff for
-        $this->taxonomies = get_taxonomies( '', 'names' );
-        $this->taxonomies = array_diff( $this->taxonomies, array( 'nav_menu', 'link_category', 'post_format' ) );
-        $this->post_types = get_post_types( '', 'names' );
-        $this->post_types = array_diff( $this->post_types, array( 'mediapage', 'attachment', 'revision', 'nav_menu_item' ) );
-    }
-    
     /* Create cron-jobs to re-create the pdf for every post.
      */
     function activate () {
+        // Set the post_type option to 1 if it doesn't already exist
+        $option = get_option( 'le_post_type_post', "doesn't exist" );
+        if ( $option == "doesn't exist" ) {
+            update_option( 'le_single_post', 1 );
+        }
+
+        // Schedule the creation of pdfs for every post.
         $args = Array( 'post-type' => 'post',
                 'numberposts' => -1,
                 'orderby' => 'post_date',
@@ -67,96 +61,97 @@ class Latex_Everything {
         wp_clear_scheduled_hook('le_activation');
     }
 
-    /*  Create a latex document for a post/taxonomy.
-     */
-    function create_document ( $id, $taxonomy='' ) {
-        $doc = new LE_Latex_Document( $id, $taxonomy );
-        if ( is_wp_error( $doc ) ) {
-            error_log( "{$doc->get_error_code()}: {$doc->get_error_message()}" );
-            return;
+    function settings_api_init() {
+
+        // Add the section to reading settings so we can add our
+ 	// fields to it
+ 	add_settings_section('le_setting_section',
+		'Latex Everything',
+		array( &$this, 'setting_section' ),
+		'reading');
+ 	
+        // Record which taxonomies and post types are defined (excluding certain ones).
+        $needed_settings = array();
+        $taxonomies = get_taxonomies( '', 'names' );
+        $taxonomies = array_diff( $taxonomies, array( 'nav_menu', 'link_category', 'post_format' ) );
+        foreach ( $taxonomies as $taxonomy ) {
+            $taxonomy_obj = get_taxonomy( $taxonomy );
+            if ( $taxonomy_obj ) {
+                $needed_settings[] = array( 'name' => "le_taxonomy_{$taxonomy}",
+                                            'title' => "Single {$taxonomy_obj->labels->name}" );
+            }
         }
-        $error = $doc->generate();
-        if (is_wp_error( $error ) ) {
-            error_log( "{$error->get_error_code()}: {$error->get_error_message()}" );
-            return;
+        $post_types = get_post_types( '', 'names' );
+        $post_types = array_diff( $post_types, array( 'mediapage', 'attachment', 'revision', 'nav_menu_item' ) );
+        foreach ( $post_types as $post_type ) {
+            $post_type_obj = get_post_type_object( $post_type );
+            if ( $post_type_obj ) {
+                $needed_settings[] = array( 'name' => "le_post_type_{$post_type}",
+                                            'title' => "All {$post_type_obj->labels->name}" );
+                $needed_settings[] = array( 'name' => "le_single_{$post_type}",
+                                            'title' => "Single {$post_type_obj->labels->name}" );
+            }
+        }
+       
+        foreach ( $needed_settings as $setting ) {
+            add_settings_field( $setting['name'],
+                    $setting['title'],
+                    array( &$this, 'setting' ),
+                    'reading',
+                    'le_setting_section',
+                    array( 'name' => $setting['name'] ) );
+ 	    register_setting('reading', $setting['name'] );
         }
     }
 
+   /* Prints a description at the top of the setting section.
+    */
+    function setting_section() {
+           echo '<p>Generate documents containing:</p>';
+    }
+    
+    /* Creates a checkbox for the option $args['name'].
+     */
+     function setting( $args ) {
+            echo '<input name="' . $args['name'] . '" id="' . $args['name'] . '" type="checkbox" value="1" class="code" ' . checked( 1, get_option( $args['name'], 0 ), false ) . '>';
+     }
+
     function update_post ( $post_id ) {
-        // TODO: Re-do the error handling.
         $docs = array();
 
         // Find out which entities are affected, and make a new document for them.
         $post_type = get_post_type( $post_id );
-        if( in_array( $post_type, $this->post_types ) ) {
+        if( get_option( "le_single_{$post_type}" ) )
             $docs[] = new LE_Latex_Single_Document( $post_id );
+        if ( get_option( "le_post_type_{$post_type}" ) )
             $docs[] = new LE_Latex_Post_Type_Document( $post_type );
-        }
-        foreach( $this->taxonomies as $taxonomy ) {
-            if( $terms = get_the_terms( $post_id, $taxonomy ) ) {
-                if( is_wp_error( $terms ) )
-                    error_log( "{$terms->get_error_code()}: {$terms->get_error_message()}" );
-                else
-                    foreach( $terms as $term )
-                        $i = 1;
-                        $docs[] = new LE_Latex_Term_Document( $term->term_id, $taxonomy );
+
+        foreach( get_taxonomies() as $taxonomy ) {
+            if( get_option( "le_taxonomy_{$taxonomy}" ) && $terms = get_the_terms( $post_id, $taxonomy ) ) {
+                if( is_wp_error( $terms ) ) {
+                    $this->handle_error( $terms );
+                    continue;
+                }
+                foreach( $terms as $term )
+                    $docs[] = new LE_Latex_Term_Document( $term->term_id, $taxonomy );
             }
         }
 
         foreach ( $docs as $doc ) {
             if ( is_wp_error( $doc ) ) {
-                error_log( "{$terms->get_error_code()}: {$terms->get_error_message()}" );
+                $this->handle_error( $doc );
                 continue;
             }
             if ( $error = $doc->generate() ) {
-                error_log( "{$error->get_error_code()}: {$error->get_error_message()}" );
+                $this->handle_error( $error );
                 continue;
             }
         }
     }
-        /* If le_error is in the query, a previous post save created an error
-         * for a post (the post ID is its value). Thus we need to re-run the
-         * converter to figure out what the error was and display it.
-         */
-    /*
-        function show_errors () {
-            global $wp_query;
-            if ( isset( $_GET['le_error'] ) ) {
-                $post_id = $_GET[ 'le_error' ];
-                global $latex_everything;
-                $le = new LE_Latex_Document( $post_id );
-                $le->create_pdf();
-            }
-        }
-    */
-    /* Adds le_error to the redirect query when the error is first encounterd.
-     * After the redirect it prints the errors to the top of the admin page.
-     */
-    /*
-    function record_error ( $error ) {
-        if ( isset( $_GET['le_error'] ) ) {
-            add_action( 'admin_notices', array( $this, 'display_error' ) );
-        } else { // First time the error has been encountered.
-            add_action('redirect_post_location', array( $this, 'change_redirect_query' ), 99 );
-        }
-        $this->error = $error;
+
+    function handle_error( $error ) {
+        error_log( "{$error->get_error_code()}: {$error->get_error_message()}" );
     }
-    */
-    /* Add a query to the redirect after the post has been saved to remind the post edit
-     * screen to re-run the pdf create so that the error can be displayed.
-     */
-    /*
-    function change_redirect_query ($location) {
-        return add_query_arg('le_error', $this->post->ID, $location);
-    }
-     */
-    /* Displays the error on the admin screen.
-     */
-    /*
-    function display_error () {
-        printf( "<div class=\"error\"><p>Article to Latex error: %s</p><pre>%s</pre></div>\n", $this->error->get_error_code(), $this->error->get_error_message() );
-    }
-    */
 }
 
 /* API */
