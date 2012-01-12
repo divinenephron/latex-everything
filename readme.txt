@@ -12,8 +12,8 @@ Produce PDF documents of everything on your site with Latex.
 Latex Everything can produce PDF documents of everything on your site with
 Latex. Or at least everything worth putting into a PDF.
 
-Latex everything can make PDF documents from individual posts and groups of
-posts like categories, tags and custom taxonomy terms). The plugins contains
+Latex Everything can make PDF documents from individual posts and groups of
+posts like categories, tags and custom taxonomy terms. The plugins contains
 everything a theme needs to define its own Latex templates, and link to the PDFs
 produced.
 
@@ -27,11 +27,17 @@ WordPress.
 4. Link to the pdf version of a post by putting the following into The Loop:  
         `<a href="<?php the_latex_url( 'single_post', get_the_ID() ) ?>">PDF Version</a`
 5. For more advanced usage (user-defined templates and generating Latex
-documents for other things) see the Usage section.
+documents for other things) see the Frequently Asked Questions.
 
-== Usage ==
+== Frequently Asked Questions ==
 
-= Typsetting More Than Posts =
+= Why isn't this working? =
+
+If something isn't working, check this FAQ for a relevent answer. If there isn't one,
+create a new topic in the [plugin forum](http://wordpress.org/tags/latex-everything?forum_id=10#postform)
+and the author will try to get back to you.
+
+= How do I typset things besides posts? =
 
 Go to `Settings->Reading`. There is a "Latex Everything" section where you can
 choose which documents Latex Everything creates. By default only "Single Posts"
@@ -50,7 +56,14 @@ category, tag, or term in a custom taxonomy).
 
 You need to know what sort of document you're looking for when getting its url.
 
-= Linking to Generated Documents =
+= When are the PDF files generated? =
+
+PDF files that contain a post are updated when it is saved. PDF files are also
+generated in bulk after the plugin is activated (this uses WP-Cron, so it takes
+a while). If you have a large number of posts and want to generate PDF files for
+all of them, deactivate and reactivate the plugin, then wait.
+
+= How do I link to the generated documents? =
 
 Functions have been provided to link to the generated PDFs.
 
@@ -91,7 +104,7 @@ a url first:
     `<a href="<?php echo $latex_url ?>">PDF</a>`  
     `<?php endif; // get_latex_permalink ?>`  
 
-= Custom Templates =
+= How do I use my own Latex Templates? =
 
 Latex Everything has a default template inside the plugin directory, but it only
 falls back on that if it doesn't find templates in the theme directory. The
@@ -119,26 +132,12 @@ For a `term` PDF:
 Look at `default-latex-template.php` in the plugin directory for guidance as to
 how to make your own.
 
-= Extending =
+= How can I extend this? =
 
 The plugin has been built with the intention of being extensible. The internals
 have documentaion in comments, and if you want to know how to do something that
-isn't obvious, create a new topic in the [plugin forum](http://wordpress.org/tags/latex-everything?forum_id=10#postform) and the author will try to get back to you.
-
-== Frequently Asked Questions ==
-
-= When are the PDF files generated? =
-
-PDF files that contain a post are updated when it is saved. PDF files are also
-generated in bulk after the plugin is activated (this uses WP-Cron, so it takes
-a while). If you have a large number of posts and want to generate PDF files for
-all of them, deactivate and reactivate the plugin, then wait.
-
-= Why isn't this working? =
-
-If something isn't working, create a new topic in the [plugin
-forum](http://wordpress.org/tags/latex-everything?forum_id=10#postform) and the
-author will try to get back to you.
+isn't obvious, create a new topic in the [plugin forum](http://wordpress.org/tags/latex-everything?forum_id=10#postform)
+and the author will try to get back to you.
 
 == Screenshots ==
 
