@@ -10,7 +10,10 @@
  */
 
 // TODO: Make documentation of API and install process.
+// TODO: Allow access to the post_type and term pdfs.
+// TODO: Use wp-cron to trigger the generation of some stuff, since php is running out of memory.
 // TODO: Allow people to define what is Latexed.
+
 
 include('latex-document.php');
 
@@ -87,6 +90,7 @@ class Latex_Everything {
         $post_type = get_post_type( $post_id );
         if( in_array( $post_type, $this->post_types ) ) {
             $docs[] = new LE_Latex_Single_Document( $post_id );
+            $docs[] = new LE_Latex_Post_Type_Document( $post_type );
         }
         foreach( $this->taxonomies as $taxonomy ) {
             if( $terms = get_the_terms( $post_id, $taxonomy ) ) {
@@ -94,7 +98,8 @@ class Latex_Everything {
                     error_log( "{$terms->get_error_code()}: {$terms->get_error_message()}" );
                 else
                     foreach( $terms as $term )
-                        $docs[] = new LE_Latex_Term_Document( $term, $taxonomy );
+                        $i = 1;
+                        $docs[] = new LE_Latex_Term_Document( $term->term_id, $taxonomy );
             }
         }
 
