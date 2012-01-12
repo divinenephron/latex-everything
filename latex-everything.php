@@ -84,7 +84,7 @@ class Latex_Everything {
         // Set the post_type option to 1 if it doesn't already exist
         $option = get_option( 'le_single_post_post', "doesn't exist" );
         if ( $option == "doesn't exist" ) {
-            update_option( 'le_single_post', 1 );
+            update_option( 'le_single_post_post', 1 );
         }
 
         // Schedule the creation of pdfs for every post.
