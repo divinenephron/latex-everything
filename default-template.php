@@ -7,14 +7,14 @@
 
 <?php the_post() ?>
 
-\date{<?php the_date() ?>}
-\title{<?php the_title() ?>}
-\author{<?php the_author() ?>}
+\date{<?php h2l( get_the_date() ) ?>}
+\title{<?php h2l( get_the_title() ) ?>}
+\author{<?php h2l( get_the_author() ) ?>}
 
 \begin{document}
 
 \maketitle
 
-<?php html_to_latex( apply_filters('the_content',get_the_content( $more_link_text, $stripteaser, $more_file ))) ?>
+<?php h2l( apply_filters( 'the_content', get_the_content() ) ) ?>
 
 \end{document}

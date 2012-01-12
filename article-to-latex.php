@@ -9,11 +9,11 @@ Description:
 License: GPL
 */
 
- /* http://codex.wordpress.org/Function_Reference#Post.2C_Custom_Post_Type.2C_Page.2C_Attachment_and_Bookmarks_Functions
- * Probably want to create a rewrite rule so that the pdf attachment is at 
- * "/pdf" under the post itself. Use rewrite API 
- * (http://codex.wordpress.org/Rewrite_API)
- */
+// TODO: Make documentation of API and install process.
+// TODO: Extend generation to object other than posts - pages? categories? You'd just need to extend the
+//       templating and the "get latex stuff" API. You might also have to use WP-Cron more (more PDF 
+//       being written at once), and hence improve the error handling to actually save error messages.
+         
 
 define( 'PLUGIN_DIR', plugin_dir_path( __FILE__ ) );            // Plugin directory with trailing slash
 define( 'PDFLATEX', '/usr/texbin/pdflatex' );
@@ -31,6 +31,8 @@ class A2l_Article_To_Latex {
 
     var $error;
 
+    var $unwanted_filter_functions = Array( 'wptexturize', 'convert_chars', 'esc_html', 'ent2ncr', '_wp_specialchars', 'sanitize_text_field', 'capital_P_dangit' );
+    var $removed_filters;
 
     function __construct ( $post_id ) {
         $this->post = get_post( $post_id );
@@ -38,10 +40,30 @@ class A2l_Article_To_Latex {
 
     function __destruct () {
         // Unlink temporary files
+        /*
         unlink( $this->latex_file );
         unlink( $this->pdf_file );
         unlink( $this->latex_file . '.aux' );
         unlink( $this->latex_file . '.log' );
+        */
+    }
+
+    function activate () {
+        // Create cron-jobs to re-create the pdf for every post.
+        $args = Array( 'post-type' => 'post',
+                      'numberposts' => -1,
+                      'orderby' => 'post_date',
+                      'order' => 'DESC',
+                      'post_status' => null,
+                    );
+        $all_posts = get_posts( $args );
+        foreach ( $all_posts as $post )
+            wp_schedule_single_event( time(), 'a2l_activation_update_post', Array( $post->ID ) );
+    }
+
+    function deactivate () {
+        // Remove all cron jobs.
+        wp_clear_scheduled_hook('a2l_activation_update_post');
     }
 
     function create_pdf() {
@@ -68,13 +90,15 @@ class A2l_Article_To_Latex {
 
     function make_latex_file () {
 
-        $template = $this->get_latex_template();
+        $template = $this->_get_latex_template();
 
         // Render the template        
         query_posts( 'p=' . $this->post->ID );
+        $this->_set_up_latex_filters();
         ob_start();
         include( $template );
         $latex = ob_get_clean();
+        $this->_undo_latex_filters();
         wp_reset_query();
 
         // Get the name of a temporary file.
@@ -101,12 +125,39 @@ class A2l_Article_To_Latex {
         return $this->latex_file;
     }
 
-    function get_latex_template () {
+    function _get_latex_template () {
         $template = get_query_template('latex');
         if ( empty( $template) ) {
             $template = PLUGIN_DIR . 'default-template.php';
         }
         return $template;
+    }
+
+    /* Removes filters that interfere with Latex while processing Latex templates.
+     * Records which filters were removed so that they can be added again later.
+     */
+    function _set_up_latex_filters() {
+        global $wp_filter;
+        foreach(         $wp_filter  as $tag      => $priorities ) {
+            foreach(     $priorities as $priority => $filters ) {
+                foreach( $filters    as $name     => $filter ) {
+                    if ( in_array( $filter['function'], $this->unwanted_filter_functions ) ) {
+                        $this->removed_filters[$tag][$priority][$name] = $filter;
+                        unset( $wp_filter[$tag][$priority][$name] );
+                    }
+                }
+            }
+        }
+        return;
+    }
+    
+    /* Add the filters back in again once Latex template processing has finished.
+     */
+    function _undo_latex_filters() {
+        global $wp_filter;
+        // (Doesn't quite get priorities right)
+        $wp_filter = array_merge_recursive( $wp_filter, $this->removed_filters );
+        return;
     }
     
     function latex_file_to_pdf_file () {
@@ -168,6 +219,7 @@ class A2l_Article_To_Latex {
         if ( $attach_id == 0 ) { // Attachment error
             return WP_Error( 'wp_insert_attachment', 'Could not attach generated pdf' );
         }
+        add_post_meta( $attach_id, '_a2l_is_latex', 1, true );
         return $attach_id;
     }
 
@@ -196,16 +248,17 @@ class A2l_Article_To_Latex {
     }
 }
 
-/* Every time a post is saved run the converter.
+/* Update the post. Run when a post is saved, and when the plugin is activated.
  */
-function a2l_save_post ( $post_id ) {
+function a2l_update_post ( $post_id ) {
     if ( get_post_type( $post_id ) == 'post' && !wp_is_post_revision( $post_id ) ) {
         global $a2l;
         $a2l = new A2l_Article_To_Latex( $post_id );
         $a2l->create_pdf();
     }
 }
-add_action('save_post', 'a2l_save_post');
+add_action('save_post', 'a2l_update_post');
+add_action('a2l_activation_update_post', 'a2l_update_post');
 
 /* If a2l_error is in the query, a previous post save created an error
  * for a post (the post ID is its value). Thus we need to re-run the
@@ -222,5 +275,66 @@ function a2l_show_errors () {
 }
 add_action( 'admin_head', 'a2l_show_errors' );
 
+register_activation_hook( __FILE__, Array( 'A2l_Article_To_Latex', 'activate' ) );
+register_deactivation_hook( __FILE__, Array( 'A2l_Article_To_Latex', 'deactivate' ) );
+
+/* API */
+
+/* Display the permalink to the Latex attachment page for the current post.
+ * (not a direct link to the pdf, use get_latex_url() for that).
+ */
+function the_latex_permalink() {
+        echo apply_filters('the_latex_permalink', get_latex_permalink());
+}
 
 
+/* Get the permalink for the current post or a post ID (not a direct link
+ * to the pdf, use get_latex_url() for that).
+ */
+function get_latex_permalink($id = 0) {
+    $attachment = get_latex_attachment( $post->ID );
+
+    if( !$attachment )
+        return '';
+    
+    return get_attachment_link($attachment->ID);
+}
+
+/* Returns a direct link to the Latex pdf for the current post or a post
+ * ID.
+ */
+function get_latex_url( $id = 0 ) {
+    $attachment = get_latex_attachment( $id );
+
+    if( !$attachment )
+        return false;
+
+    return wp_get_attachment_url( $attachment->ID );
+}
+
+/* Returns the latex attachment for the current post or a 
+ * post ID. Return false if this doesn't have one.
+ */
+function get_latex_attachment( $id=0 ) {
+    if ( is_object($id) ) {
+            $post = $id;
+    } else {
+            $post = &get_post($id);
+    }
+    if ( empty($post->ID) )
+            return false;
+
+    $args = array( 'post_type' => 'attachment',
+                   'numberposts' => 1,
+                   'post_parent' => $post->ID,
+                   'meta_key' => '_a2l_is_latex',
+                   'meta_value' => 1,
+                   ); 
+    $attachments = get_posts($args);
+    
+    if (!$attachments)
+        return false;
+
+    return $attachments[0];
+}
+?>

@@ -286,30 +286,13 @@ class A2l_Html_To_Latex {
 
     }
 
-    // Run on html text nodes before output
-    function quote_expansion_filter ( $text ) {
-        $text = preg_replace( '/([^\s\[\{\)~])"/', "$1''", $text );
-        $text = preg_replace( '/"/', '``', $text );
-        return $text;
-    }
 
-    // Run on html text nodes before output
-    function urlify_filter ( $text ) {
-        // Wraps urls in \url{}
-        // Lovingly stolen from http://daringfireball.net/2010/07/improved_regex_for_matching_urls
-        $pattern = '/(?i)\b((?:[a-z][\w-]+:(?:\/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))/';
-        return preg_replace( $pattern,
-                '\url{$0}',
-                $text );
-    }
-
-    // Run on <img> and <table> nodes before output
-    function float_filter ( $latex, $element ) {
-        return "\\begin{figure}[htbp]\n{$latex}\n\\end{figure}\n";
-    }
 }
 
 // API functions.
+function h2l ( $html ) {
+    html_to_latex( $html );
+}
 function html_to_latex ( $html ) {
     echo get_html_to_latex( $html );
 }
@@ -320,11 +303,33 @@ function get_html_to_latex ( $html ) {
     return $a2l_html_to_latex->html_to_latex( $html );
 }
 
+// Filters.
+// Run on html text nodes before output
+function quote_expansion_filter ( $text ) {
+    $text = preg_replace( '/([^\s\[\{\)~])"/', "$1''", $text );
+    $text = preg_replace( '/"/', '``', $text );
+    return $text;
+}
+
+// Run on html text nodes before output
+function urlify_filter ( $text ) {
+    // Wraps urls in \url{}
+    // Lovingly stolen from http://daringfireball.net/2010/07/improved_regex_for_matching_urls
+    $pattern = '/(?i)\b((?:[a-z][\w-]+:(?:\/{1,3}|[a-z0-9%])|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))/';
+    return preg_replace( $pattern,
+            '\url{$0}',
+            $text );
+}
+
+// Run on <img> and <table> nodes before output
+function float_filter ( $latex ) {
+    return "\\begin{figure}[htbp]\n{$latex}\n\\end{figure}\n";
+}
+
 // Register filters
-add_filter('a2l_img_element', array('A2l_Html_To_Latex', 'float_filter'), 98);
-add_filter('a2l_table_element', array('A2l_Html_To_Latex', 'float_filter'), 98);
-add_filter('a2l_text', array('A2l_Html_To_Latex', 'urlify_filter'), 98);
-add_filter('a2l_text', array('A2l_Html_To_Latex', 'quote_expansion_filter'), 99);
+add_filter('a2l_img_element', 'float_filter', 98);
+add_filter('a2l_table_element', 'float_filter', 98);
+add_filter('a2l_text', 'urlify_filter', 98);
+add_filter('a2l_text','quote_expansion_filter', 99);
 
 ?>
-
