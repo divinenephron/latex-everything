@@ -38,12 +38,10 @@ class A2l_Article_To_Latex {
 
     function __destruct () {
         // Unlink temporary files
-        /*
         unlink( $this->latex_file );
         unlink( $this->pdf_file );
         unlink( $this->latex_file . '.aux' );
         unlink( $this->latex_file . '.log' );
-        */
     }
 
     function create_pdf() {

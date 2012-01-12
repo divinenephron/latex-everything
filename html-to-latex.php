@@ -302,6 +302,11 @@ class A2l_Html_To_Latex {
                 '\url{$0}',
                 $text );
     }
+
+    // Run on <img> and <table> nodes before output
+    function float_filter ( $latex, $element ) {
+        return "\\begin{figure}[htbp]\n{$latex}\n\\end{figure}\n";
+    }
 }
 
 // API functions.
@@ -316,6 +321,8 @@ function get_html_to_latex ( $html ) {
 }
 
 // Register filters
+add_filter('a2l_img_element', array('A2l_Html_To_Latex', 'float_filter'), 98);
+add_filter('a2l_table_element', array('A2l_Html_To_Latex', 'float_filter'), 98);
 add_filter('a2l_text', array('A2l_Html_To_Latex', 'urlify_filter'), 98);
 add_filter('a2l_text', array('A2l_Html_To_Latex', 'quote_expansion_filter'), 99);
 
