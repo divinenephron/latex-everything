@@ -10,17 +10,19 @@
  */
 
 // TODO: Make documentation of API and install process.
-// TODO: Update the API to allow access to the taxonomy and post_type pdfs.
-
-
-include('latex-document.php');
 
 global $latex_everything;
 $latex_everything = new Latex_Everything;
 
+include('latex-post-types.php');
+include('latex-single-posts.php');
+include('latex-terms.php');
+
 /* When the plugin is activated, create cron jobs to create the desired pdf.
  */
 class Latex_Everything {
+    
+    var $controllers;
 
     function __construct () {
         register_activation_hook( __FILE__, array( &$this, 'activate' ) );
@@ -31,19 +33,28 @@ class Latex_Everything {
 
         add_action('admin_init', array( &$this, 'settings_api_init' ) );
 
+        $this->controllers = array();
+    }
+
+    function add_controller( $name, $controller ) {
+        $this->controllers[$name] = $controller;
+    }
+
+    function remove_controller( $name ) {
+        unset( $this->controllers[$name] );
     }
 
     /* Create cron-jobs to re-create the pdf for every post.
      */
     function activate () {
         // Set the post_type option to 1 if it doesn't already exist
-        $option = get_option( 'le_post_type_post', "doesn't exist" );
+        $option = get_option( 'le_single_post_post', "doesn't exist" );
         if ( $option == "doesn't exist" ) {
             update_option( 'le_single_post', 1 );
         }
 
         // Schedule the creation of pdfs for every post.
-        $args = Array( 'post-type' => 'post',
+        $args = Array( 'post-type' => null,
                 'numberposts' => -1,
                 'orderby' => 'post_date',
                 'order' => 'DESC',
@@ -72,26 +83,9 @@ class Latex_Everything {
  	
         // Record which taxonomies and post types are defined (excluding certain ones).
         $needed_settings = array();
-        $taxonomies = get_taxonomies( '', 'names' );
-        $taxonomies = array_diff( $taxonomies, array( 'nav_menu', 'link_category', 'post_format' ) );
-        foreach ( $taxonomies as $taxonomy ) {
-            $taxonomy_obj = get_taxonomy( $taxonomy );
-            if ( $taxonomy_obj ) {
-                $needed_settings[] = array( 'name' => "le_taxonomy_{$taxonomy}",
-                                            'title' => "Single {$taxonomy_obj->labels->name}" );
-            }
-        }
-        $post_types = get_post_types( '', 'names' );
-        $post_types = array_diff( $post_types, array( 'mediapage', 'attachment', 'revision', 'nav_menu_item' ) );
-        foreach ( $post_types as $post_type ) {
-            $post_type_obj = get_post_type_object( $post_type );
-            if ( $post_type_obj ) {
-                $needed_settings[] = array( 'name' => "le_post_type_{$post_type}",
-                                            'title' => "All {$post_type_obj->labels->name}" );
-                $needed_settings[] = array( 'name' => "le_single_{$post_type}",
-                                            'title' => "Single {$post_type_obj->labels->name}" );
-            }
-        }
+
+        foreach ( $this->controllers as $controller )
+            $needed_settings = array_merge( $needed_settings, $controller->get_settings() );
        
         foreach ( $needed_settings as $setting ) {
             add_settings_field( $setting['name'],
@@ -119,30 +113,18 @@ class Latex_Everything {
     function update_post ( $post_id ) {
         $docs = array();
 
-        // Find out which entities are affected, and make a new document for them.
-        $post_type = get_post_type( $post_id );
-        if( get_option( "le_single_{$post_type}" ) )
-            $docs[] = new LE_Latex_Single_Document( $post_id );
-        if ( get_option( "le_post_type_{$post_type}" ) )
-            $docs[] = new LE_Latex_Post_Type_Document( $post_type );
-
-        foreach( get_taxonomies() as $taxonomy ) {
-            if( get_option( "le_taxonomy_{$taxonomy}" ) && $terms = get_the_terms( $post_id, $taxonomy ) ) {
-                if( is_wp_error( $terms ) ) {
-                    $this->handle_error( $terms );
-                    continue;
-                }
-                foreach( $terms as $term )
-                    $docs[] = new LE_Latex_Term_Document( $term->term_id, $taxonomy );
-            }
+        foreach( $this->controllers as $controller ) {
+            $docs = array_merge( $docs, $controller->documents_for_post( $post_id ) );
         }
 
+        //error_log( var_export( $docs, true ) );
         foreach ( $docs as $doc ) {
             if ( is_wp_error( $doc ) ) {
                 $this->handle_error( $doc );
                 continue;
             }
-            if ( $error = $doc->generate() ) {
+            $error = $doc->generate();
+            if ( $error ) {
                 $this->handle_error( $error );
                 continue;
             }
@@ -152,65 +134,83 @@ class Latex_Everything {
     function handle_error( $error ) {
         error_log( "{$error->get_error_code()}: {$error->get_error_message()}" );
     }
+
+    function get_document( $type /*, [...] */ ) {
+        $args = array_slice( func_get_args(), 1 );
+        $controller = $this->controllers[$type];
+        $doc = call_user_func_array( array( &$controller, 'get_document' ), $args );
+        if ( is_wp_error( $doc ) ) {
+            $this->handle_error( $doc );
+            return 0;
+        }
+        return $doc;
+
+    }
+
+    function get_latex_permalink( $type /*, [...] */ ) {
+        $doc = call_user_func_array( array( &$this, 'get_document' ), func_get_args() );
+        if ( $doc )
+            return $doc->get_permalink();
+        return '';
+    }
+
+    function get_latex_url( $type /*, [...] */ ) {
+        $doc = call_user_func_array( array( &$this, 'get_document' ), func_get_args() );
+        if ( $doc ) {
+            return $doc->get_url();
+        }
+        return '';
+    }   
+    
+    function get_latex_attachment_id( $type /*, [...] */ ) {
+        $doc = call_user_func_array( array( &$this, 'get_document' ), func_get_args() );
+        if ( $doc )
+            return $doc->get_attachment_id();
+        return '';
+    }
 }
 
 /* API */
 
-/* Display the permalink to the Latex attachment page for the current post.
- * (not a direct link to the pdf, use get_latex_url() for that).
+/* Echos the permalink to the attachment page for the given thing.
+ * (Not a direct link to the pdf, use get_latex_url() for that).
  */
-function the_latex_permalink() {
-    echo apply_filters('the_latex_permalink', get_latex_permalink());
+function the_latex_permalink($type /*, [...] */ ) {
+    echo call_user_func_array( 'get_latex_permalink', func_get_args() );
 }
 
 
-/* Get the permalink for the current post or a post ID (not a direct link
+/* Returns the permalink for the given thing (not a direct link
  * to the pdf, use get_latex_url() for that).
  */
-function get_latex_permalink($id = 0) {
-    $attachment = get_latex_attachment( $post->ID );
-
-    if( !$attachment )
-        return '';
-
-    return get_attachment_link($attachment->ID);
+function get_latex_permalink($type /*, [...] */ ) {
+    global $latex_everything;
+    return call_user_func_array( array( &$latex_everything, 'get_latex_permalink' ),
+                                 func_get_args() );
 }
 
-/* Returns a direct link to the Latex pdf for the current post or a post
+/* Echos a direct link to the pdf for the given thing.
+ */
+function the_latex_url($type /*, [...] */ ) {
+    echo call_user_func_array( 'get_latex_url', func_get_args() );
+}
+
+/* Returns a direct link to the pdf for the given thing.
  * ID.
  */
-function get_latex_url( $id = 0 ) {
-    $attachment = get_latex_attachment( $id );
-
-    if( !$attachment )
-        return false;
-
-    return wp_get_attachment_url( $attachment->ID );
+function get_latex_url( $type /*, [...] */ ) {
+    global $latex_everything;
+    return call_user_func_array( array( &$latex_everything, 'get_latex_url' ),
+                                 func_get_args() );
 }
 
-/* Returns the latex attachment for the current post or a 
- * post ID. Return false if this doesn't have one.
+/* Returns the id of the latex pdf attachment for the given thing.
+ *
  */
-function get_latex_attachment( $id=0 ) {
-    if ( is_object($id) ) {
-        $post = $id;
-    } else {
-        $post = &get_post($id);
-    }
-    if ( empty($post->ID) )
-        return false;
-
-    $args = array( 'post_type' => 'attachment',
-            'numberposts' => 1,
-            'post_parent' => $post->ID,
-            'meta_key' => '_le_is_latex',
-            'meta_value' => 1,
-            ); 
-    $attachments = get_posts($args);
-
-    if (!$attachments)
-        return false;
-
-    return $attachments[0];
+function get_latex_attachment_id( $type /*, [...] */ ) {
+    global $latex_everything;
+    return call_user_func_array( array( &$latex_everything, 'get_latex_attachment_id' ),
+                                 func_get_args() );
 }
+
 ?>

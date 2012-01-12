@@ -2,45 +2,63 @@
 
 define( 'PLUGIN_DIR', plugin_dir_path( __FILE__ ) );            // Plugin directory with trailing slash
 
-include('html-to-latex.php'); // Include functions to convert html to latex.
+include_once('html-to-latex.php'); // Include functions to convert html to latex.
 
 /*
- * get_source
  * get_posts
  * typeset_all_files
  * get_template
- * get_attachment_title
- * get_pdf_filename
+ * get_title
+ * get_name
  * get_parent_post_id
  */
 
+/* LE_Latex_Document
+ * - - - - - - - - -
+ *
+ * The base class representing generated Latex attachments.
+ *
+ * This class isn't of much use on its own, but its subclasses define specific
+ * behaviour that allow you to create and locate different generated Latex 
+ * attachments.
+ * 
+ * Important methods for using LE_Latex_Document subclasses
+ * - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+ * 
+ * new LE_Latex_Document_Subclass( [...] )
+ *      Create a new document representing some Wordpress object.
+ *      Args: whatever is needed to identify the object, depending on the subclass.
+ *      Return: 0 on success, or a WP_Error object.
+ *
+ * generate()
+ *      Creates the Latex document attachment.
+ *      Return: 0 on succes, or a WP_Error object.
+ * 
+ * get_permalink()
+ *      Return the permalink of the attachment.
+ *      Return: String containing the permalink
+ * 
+ * get_url()
+ *      Returns a direct link to the Latex pdf.
+ *      Return: String containing the pdf url.
+ *
+ */
 class LE_Latex_Document {
-
-    var $source;
 
     var $pdflatex_path;
 
     var $latex_files;
     var $tmp_files;
-    var $pdf_file;
-    var $uploaded_file;
+
+    var $attachment_id;
 
     var $unwanted_filter_functions = Array( 'wptexturize', 'convert_chars', 'esc_html', 'ent2ncr', '_wp_specialchars', 'sanitize_text_field', 'capital_P_dangit' );
     var $removed_filters;
 
     function __construct () {
 
-        $args = func_get_args();
-        $source = call_user_func_array( array( $this, 'get_source' ), $args );
-        if ( is_wp_error( $source ) )
-            return $source;
-        $this->source = $source;
-
         $this->latex_files = array();
         $this->tmp_files = array();
-
-        if ( !$this->pdflatex_path = exec( 'which pdflatex' ) )
-            return new WP_Error( 'LE_Latex_Document::__construct', 'pdflatex not found' );
 
         return 0;
     }
@@ -58,6 +76,10 @@ class LE_Latex_Document {
     /* This method is redefined by subclasses to generate and attach the pdf file.
      */
     function generate() {
+        // Find pdflatex
+        if ( !$this->pdflatex_path = exec( 'which pdflatex' ) )
+            return new WP_Error( 'LE_Latex_Document::__construct', 'pdflatex not found' );
+
         // Generate single latex files for each of a term's posts, because Latex
         // wasn't designed to generate multi-article documents.
         $posts = $this->get_posts();
@@ -74,11 +96,9 @@ class LE_Latex_Document {
         $pdf_file = $this->typeset_all_files();
         if ( is_wp_error( $pdf_file ) )
             return $pdf_file;
-        else
-            $this->pdf_file = $pdf_file;
 
         // Attach pdf file
-        $attach_id = $this->attach_pdf_file();
+        $attach_id = $this->attach_pdf_file( $pdf_file );
         if ( is_wp_error( $attach_id ) )
             return $attach_id;
         return 0; // Return no error
@@ -132,7 +152,7 @@ class LE_Latex_Document {
     }
 
     function get_template() {
-        return PLUGIN_DIR . 'default-latex.php';
+        return PLUGIN_DIR . 'default-latex-template.php';
     }
 
     /* Removes filters that interfere with Latex while processing Latex templates.
@@ -191,89 +211,67 @@ class LE_Latex_Document {
         return $pdf_file;
     }
 
-
-    function attach_pdf_file () {
+    function attach_pdf_file( $pdf_file ) {
         $wp_filetype = wp_check_filetype( '.pdf' );
         $attachment_data = array(
             'post_mime_type' => $wp_filetype['type'],
-            'post_title' => $this->get_attachment_title(),
+            'post_title' => $this->get_title(),
             'post_name' => 'pdf',
             'post_content' => '',
             'post_status' => 'inherit',
         );
 
-        // Check whether this post has an older file and attachment
-        // object we can update
-        $args = array( 'post_type' => 'attachment',
-                       'numberposts' => -1,
-                       'post_status' => null,
-                       'post_parent' => $this->get_parent_post_id(), );
-        $attachments = get_posts($args);
-        if ($attachments) {
-            foreach ( $attachments as $attachment ) {
-                $attached_file = get_attached_file( $attachment->ID );
-                if ( basename( $attached_file ) == $this->get_pdf_filename() ) {
-                    $this->uploaded_file = $attached_file;
-                    $attachment_data['ID'] = $attachment->ID;
-                }
-            }
-        }
-
-        // If it doesn't, find a location for a new file
-        if ( empty( $this->uploaded_file ) ) {
+        if ( $attachment_id = $this->get_attachment_id() ) {
+            $attachment_data['ID'] = $attachment_id;
+            $uploaded_file = get_attached_file( $attachment_id );
+        } else {
             $upload_dir = wp_upload_dir();
-            $this->uploaded_file = $upload_dir['path'] . '/' . $this->get_pdf_filename();
+            $uploaded_file = $upload_dir['path'] . '/' . $this->get_name() . '.pdf';
         }
         
         // Create the attachment
-        copy( $this->pdf_file, $this->uploaded_file );
-        $attach_id = wp_insert_attachment( $attachment_data, $this->uploaded_file, $this->get_parent_post_id() );
+        copy( $pdf_file, $uploaded_file );
+        $attach_id = wp_insert_attachment( $attachment_data, $uploaded_file, $this->get_parent_post_id() );
         if ( $attach_id == 0 ) { // Attachment error
             return new WP_Error( 'wp_insert_attachment', 'Could not attach generated pdf' );
         }
-        add_post_meta( $attach_id, '_le_is_latex', 1, true );
         return $attach_id;
     }
 
-}
+    /* Returns the id of the existing attachment object for this document.
+     * If this doesn't exists, returns 0.
+     */
+    function get_attachment_id() {
+        if ( isset( $this->attachment_id ) ) // Check whether we've cached the result.
+            return $this->attachment_id;
+        global $wpdb;
 
-class LE_Latex_Single_Document extends LE_Latex_Document {
-    
-    function get_source( $id ) {
-        return get_post( $id );
+        // If the attachment already exists, it will have an attached
+        // file with the same filename as ours.
+        $query = "
+            SELECT post_id FROM $wpdb->postmeta
+            WHERE meta_key = '_wp_attached_file'
+            AND meta_value LIKE '%{$this->get_name()}.pdf'
+            ";
+        $ids = $wpdb->get_results( $query );
+        if ( !$ids )
+            return 0;
+        $attachment_id = $ids[0]->post_id;
+
+        $this->attachment_id = $attachment_id;
+        return $attachment_id;
     }
 
-    function get_posts() {
-        return array( $post = $this->source );
+    /* Get the permalink of the attachment page.
+     */
+    function get_permalink() {
+        return get_attachment_url( $this->get_attachment_id() );
     }
 
-    function typeset_all_files() {
-        return $this->typeset_file( $this->latex_files[0] );
-    }
-        
-    function get_template() {
-        $templates = array();
-        $templates[] = 'latex';
-        $templates[] = "latex-single";
-        $templates[] = "latex-single-{$this->source->post_type}";
-        $templates[] = "latex-single-{$this->source->post_type}-{$this->source->post_name}";
-        $templates[] = "latex-single-{$this->source->post_type}-{$this->source->ID}";
-        $template = get_query_template('latex-single', $templates);
-        if ( empty( $template) )
-            $template = parent::get_template();
-        return $template;
-    }
-
-    function get_pdf_filename() {
-        return "{$this->source->post_name}.pdf";
-    }
-
-    function get_attachment_title() {
-        return $this->source->post_title;
-    }
-
-    function get_parent_post_id() {
-        return $this->source->ID;
+    /* Get a direct link to the pdf.
+     */
+    function get_url() {
+        return wp_get_attachment_url( $this->get_attachment_id() );
     }
 }
 
@@ -281,17 +279,14 @@ class LE_Latex_Multiple_Document extends LE_Latex_Document {
 
     var $pdftk_path;
 
-    function __construct() {
-        if ( !$this->pdftk_path = exec( 'which pdftk' ) )
-            return new WP_Error( 'LE_Latex_Term_Document::__construct', 'pdftk not found' );
-        call_user_func_array( 'parent::__construct', func_get_args() );
-    }
-
-
-    /* Typsets the latex files in $doc seperately then concatenates them with
-     * pdftk. Also ensures the page numbering is corret for each file.
+    /* Typsets the latex files seperately then concatenates them with
+     * pdftk. Also ensures the page numbering is correct for each file.
      */
     function typeset_all_files () {
+        // Find pdftk
+        if ( !$this->pdftk_path = exec( 'which pdftk' ) )
+            return new WP_Error( 'LE_Latex_Term_Document::__construct', 'pdftk not found' );
+
         // Get a temporary filename for the concatenated pdf.
         if ( !$tmp_file = tempnam( sys_get_temp_dir(), 'le-' ) )
 	    return new WP_Error( 'tempnam', 'Could not create temporary file.' );
@@ -336,86 +331,6 @@ class LE_Latex_Multiple_Document extends LE_Latex_Document {
 
     function get_parent_post_id() {
         return 0;
-    }
-}
-
-
-class LE_Latex_Post_Type_Document extends LE_Latex_Multiple_Document {
-
-    function get_source( $post_type ) {
-        $source = get_post_type_object( $post_type );
-        if ( !$source )
-            return new WP_Error( 'LE_Latex_Term_Document', 'Could not find post type' );
-        return $source;
-    }
-
-    function get_posts() {
-        $args = array( 'orderby'        => 'date',
-                       'order'          => 'DESC',
-                       'posts_per_page' => -1,
-                       'post_type'      => $this->source->name, );
-        return get_posts( $args );
-    }
-
-    function get_template() {
-        $templates = array();
-        $templates[] = 'latex';
-        $templates[] = "latex-post-type";
-        $templates[] = "latex-post-type-{$this->source->name}";
-        $template = get_query_template('latex-term', $templates);
-        if ( empty( $template) )
-            $template = parent::get_template();
-        return $template;
-    }
-    
-    function get_attachment_title() {
-        return $this->source->labels->name;
-    }
-
-    function get_pdf_filename() {
-        return "{$this->source->name}.pdf";
-    }
-}
-
-class LE_Latex_Term_Document extends LE_Latex_Multiple_Document {
-
-    function get_source( $id, $taxonomy ) {
-        $source = get_term( $id, $taxonomy );
-        return $source;
-    }
-
-    function get_posts() {
-        $args = array( 'tax_query'      => array( array(
-                                            'taxonomy' => $this->source->taxonomy,
-                                            'field' => 'id',
-                                            'terms' => $this->source->term_id, )),
-                       'orderby'        => 'date',
-                       'order'          => 'DESC',
-                       'posts_per_page' => -1,
-                       'post_type'      => null, );
-        return get_posts( $args );
-    }
-
-    function get_template() {
-        $templates = array();
-        $templates[] = 'latex';
-        $templates[] = "latex-term";
-        $templates[] = "latex-term-{$this->source->taxonomy}";
-        $templates[] = "latex-term-{$this->source->taxonomy}-{$this->source->slug}";
-        $templates[] = "latex-term-{$this->source->taxonomy}-{$this->source->term_id}";
-        $template = get_query_template('latex-term', $templates);
-        if ( empty( $template) )
-            $template = parent::get_template();
-        return $template;
-    }
-
-    function get_attachment_title() {
-        $tax_name = ucwords( $this->source->taxonomy );
-        return "{$tax_name} {$this->source->name}";
-    }
-
-    function get_pdf_filename() {
-        return "{$this->source->taxonomy}-{$this->source->slug}.pdf";
     }
 }
 
