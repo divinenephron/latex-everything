@@ -85,4 +85,3 @@ class LE_Latex_Single_Document extends LE_Latex_Document {
         return $this->source->ID;
     }
 }
-?>

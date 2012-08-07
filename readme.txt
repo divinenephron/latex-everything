@@ -25,7 +25,7 @@ these by executing `which pdflatex` and `which pdftk` on your host.
 3. Activate the plugin Latex for WordPress through the 'Plugins' menu in
 WordPress.
 4. Link to the pdf version of a post by putting the following into The Loop:  
-        `<a href="<?php the_latex_url( 'single_post', get_the_ID() ) ?>">PDF Version</a`
+        `<a href="<?php the_latex_url( 'single_post', get_the_ID() ) ?>">PDF Version</a>`
 5. For more advanced usage (user-defined templates and generating Latex
 documents for other things) see the Frequently Asked Questions.
 

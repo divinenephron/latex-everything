@@ -79,5 +79,3 @@ class LE_Latex_Post_Type_Document extends LE_Latex_Multiple_Document {
         return $this->source->name;
     }
 }
-
-?>

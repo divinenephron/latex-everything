@@ -246,5 +246,3 @@ function get_latex_attachment_id( $type /*, [...] */ ) {
     return call_user_func_array( array( &$latex_everything, 'get_latex_attachment_id' ),
                                  func_get_args() );
 }
-
-?>

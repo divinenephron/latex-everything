@@ -4,9 +4,6 @@ define( 'PLUGIN_DIR', plugin_dir_path( __FILE__ ) );            // Plugin direct
 
 include_once('html-to-latex.php'); // Include functions to convert html to latex.
 
-/*
- */
-
 /* LE_Latex_Document
  * - - - - - - - - -
  *
@@ -240,20 +237,26 @@ class LE_Latex_Document {
             'post_content' => '',
             'post_status' => 'inherit',
         );
-
-        if ( $attachment_id = $this->get_attachment_id() ) {
+        
+        $attachment_id = $this->get_attachment_id();
+        if ( $attachment_id ) {
             $attachment_data['ID'] = $attachment_id;
             $uploaded_file = get_attached_file( $attachment_id );
         } else {
             $upload_dir = wp_upload_dir();
-            $uploaded_file = $upload_dir['path'] . '/' . $this->get_name() . '.pdf';
-        }
+	    if ($upload_dir['error']) {
+	      return new WP_Error( 'wp_upload_dir', $upload_dir['error'] );
+            }
+            $uploaded_file = trailingslashit($upload_dir['path']).$this->get_name().'.pdf';
         
-        // Create the attachment
-        copy( $pdf_file, $uploaded_file );
-        $attach_id = wp_insert_attachment( $attachment_data, $uploaded_file, $this->get_parent_post_id() );
-        if ( $attach_id == 0 ) { // Attachment error
-            return new WP_Error( 'wp_insert_attachment', 'Could not attach generated pdf' );
+            // Create the attachment
+            if ( !copy( $pdf_file, $uploaded_file )) {
+                return new WP_Error( 'copy', 'Failed to copy '.$pdf_file.' to '.$uploaded_file.'.');
+            }
+            $attach_id = wp_insert_attachment( $attachment_data, $uploaded_file, $this->get_parent_post_id() );
+            if ( $attach_id == 0 ) { // Attachment error
+                return new WP_Error( 'wp_insert_attachment', 'Could not attach generated pdf' );
+            }
         }
         return $attach_id;
     }
@@ -276,7 +279,7 @@ class LE_Latex_Document {
         $ids = $wpdb->get_results( $query );
         if ( !$ids )
             return 0;
-        $attachment_id = $ids[0]->post_id;
+        $attachment_id = (int) $ids[0]->post_id;
 
         $this->attachment_id = $attachment_id;
         return $attachment_id;
@@ -353,5 +356,3 @@ class LE_Latex_Multiple_Document extends LE_Latex_Document {
         return 0;
     }
 }
-
-?>

@@ -89,6 +89,3 @@ class LE_Latex_Term_Document extends LE_Latex_Multiple_Document {
         return "{$this->source->taxonomy}-{$this->source->slug}";
     }
 }
-
-
-?>

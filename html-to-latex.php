@@ -353,4 +353,3 @@ add_filter('a2l_table_element', 'le_float_filter' );
 add_filter('a2l_latex_text', 'le_urlify_filter' );
 add_filter('a2l_latex_text', 'le_quote_expansion_filter' );
 add_filter('a2l_latex_text', 'le_special_char_filter' );
-?>
