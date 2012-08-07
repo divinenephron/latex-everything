@@ -76,6 +76,6 @@ class LE_Latex_Post_Type_Document extends LE_Latex_Multiple_Document {
     }
 
     function get_name() {
-        return $this->source->name;
+        return sanitize_title($this->source->labels->all_items);
     }
 }

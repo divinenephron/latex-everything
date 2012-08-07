@@ -74,7 +74,7 @@ class LE_Latex_Single_Document extends LE_Latex_Document {
     }
 
     function get_name() {
-        return $this->source->post_name;
+        return "{$this->source->post_type}-{$this->source->post_name}";
     }
 
     function get_title() {

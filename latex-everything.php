@@ -2,7 +2,7 @@
 /*
    Plugin Name: Latex Everything
    Plugin URI: http://wordpress.org/extend/plugins/latex-everything
-   Version: 1.1
+   Version: 1.2
    Author: Divinenephron (Devon Buchanan)
    Author URI: http://divinenephron.co.uk
    Description: Produce PDF documents of everything on your site with Latex.
