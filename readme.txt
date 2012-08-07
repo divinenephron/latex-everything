@@ -2,8 +2,10 @@
 Contributors: divinenephron
 Tags: latex, pdf, attachment
 Requires at least: 3.0
-Tested up to: 3.3.1
-Stable tag: trunk
+Tested up to: 3.4.1
+Stable tag: 1.1
+License: GPLv2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 Produce PDF documents of everything on your site with Latex.
 
@@ -33,15 +35,15 @@ documents for other things) see the Frequently Asked Questions.
 
 = Why isn't this working? =
 
-If something isn't working, check this FAQ for a relevent answer. If there isn't one,
+If something isn't working, check this FAQ for a relevant answer. If there isn't one,
 create a new topic in the [plugin forum](http://wordpress.org/tags/latex-everything?forum_id=10#postform)
 and the author will try to get back to you.
 
-= How do I typset things besides posts? =
+= How do I typeset things besides posts? =
 
 Go to `Settings->Reading`. There is a "Latex Everything" section where you can
 choose which documents Latex Everything creates. By default only "Single Posts"
-option is selected, but you can typset other post types (including custom ones),
+option is selected, but you can typeset other post types (including custom ones),
 documents containing every post in a category (or other taxonomies), and
 documents containing every post of a specific post type. 
 
@@ -114,13 +116,13 @@ For a `single_post` PDF:
     `latex-single-<post_type>-<post id>.php`  
     `latex-single-<post_type>-<post slug>.php`  
     `latex-single-<post_type>.php`  
-    `latex-single.php`  
+    `latex-single.php`
     `latex.php`  
 
 For a `post_type` PDF:  
     `latex-post-type-<post type name>.pdf`  
     `latex-post-type.pdf`  
-    `latex.pdf`  
+    `latex.pdf`
 
 For a `term` PDF:  
     `latex-term-<taxonomy>-<term id>.pdf`  
@@ -135,7 +137,7 @@ how to make your own.
 = How can I extend this? =
 
 The plugin has been built with the intention of being extensible. The internals
-have documentaion in comments, and if you want to know how to do something that
+have documentation in comments, and if you want to know how to do something that
 isn't obvious, create a new topic in the [plugin forum](http://wordpress.org/tags/latex-everything?forum_id=10#postform)
 and the author will try to get back to you.
 
@@ -146,10 +148,16 @@ and the author will try to get back to you.
 
 == Changelog ==
 
+= 1.1 =
+* Fixed a bug where PDFs for custom post types would not be generated.
+
 = 1.0 =
 * First released version.
 
 == Upgrade Notice ==
+
+= 1.1 =
+This version fixes a bug where PDFs for custom post types would not be generated.
 
 = 1.0 =
 First stable version.
