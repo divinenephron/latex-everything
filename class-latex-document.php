@@ -130,12 +130,19 @@ class LE_Latex_Document {
         $args = array(  'orderby'        => 'date',
                         'order'          => 'DESC',
                         );
-        if ( $post_type == 'page' )
+        if ( $post_type == 'page' ) {
             $args['page_id'] = $id;
-        else
+        } else {
             $args['p'] = $id;
+            $args['post_type'] = $post_type;
+        }
         query_posts( $args );
-
+        
+        global $wp_query;
+        if ( $wp_query->post_count == 0 ) {
+            return new WP_Error( 'query_posts', 'No posts were found for the query "'.http_build_query($args).'", so no Latex files were produced');
+        }
+        
         // Render the template
         $this->set_up_latex_filters();
         ob_start();
@@ -238,6 +245,7 @@ class LE_Latex_Document {
             'post_status' => 'inherit',
         );
         
+        // Find out where to put the attachment
         $attachment_id = $this->get_attachment_id();
         if ( $attachment_id ) {
             $attachment_data['ID'] = $attachment_id;
@@ -248,17 +256,18 @@ class LE_Latex_Document {
 	      return new WP_Error( 'wp_upload_dir', $upload_dir['error'] );
             }
             $uploaded_file = trailingslashit($upload_dir['path']).$this->get_name().'.pdf';
-        
-            // Create the attachment
-            if ( !copy( $pdf_file, $uploaded_file )) {
-                return new WP_Error( 'copy', 'Failed to copy '.$pdf_file.' to '.$uploaded_file.'.');
-            }
-            $attach_id = wp_insert_attachment( $attachment_data, $uploaded_file, $this->get_parent_post_id() );
-            if ( $attach_id == 0 ) { // Attachment error
-                return new WP_Error( 'wp_insert_attachment', 'Could not attach generated pdf' );
-            }
         }
-        return $attach_id;
+        
+        // Create the attachment
+        if ( !copy( $pdf_file, $uploaded_file )) {
+            return new WP_Error( 'copy', 'Failed to copy '.$pdf_file.' to '.$uploaded_file.'.');
+        }
+        $attachment_id = wp_insert_attachment( $attachment_data, $uploaded_file, $this->get_parent_post_id() );
+        if ( $attachment_id == 0 ) { // Attachment error
+            return new WP_Error( 'wp_insert_attachment', 'Could not attach generated pdf' );
+        }
+        
+        return $attachment_id;
     }
 
     /* Returns the id of the existing attachment object for this document.
