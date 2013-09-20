@@ -4,7 +4,7 @@ include_once('class-latex-document.php');
 global $latex_everything;
 $latex_term_controller = new LE_Latex_Term_Controller();
 
-$latex_everything->add_controller( 'term', &$latex_term_controller );
+$latex_everything->add_controller( 'term', $latex_term_controller );
 
 class LE_Latex_Term_Controller {
 
