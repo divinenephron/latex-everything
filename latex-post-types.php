@@ -5,7 +5,7 @@ include_once('class-latex-document.php');
 global $latex_everything;
 $latex_post_type_controller = new LE_Latex_Post_Type_Controller();
 
-$latex_everything->add_controller( 'post_type', &$latex_post_type_controller );
+$latex_everything->add_controller( 'post_type', $latex_post_type_controller );
 
 class LE_Latex_Post_Type_Controller {
     function documents_for_post( $post_id ) {

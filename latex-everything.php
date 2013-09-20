@@ -31,7 +31,7 @@ include('latex-terms.php');
  *
  *      global $latex_everything;
  *      $latex_post_type_controller = new LE_Latex_Post_Type_Controller();
- *      $latex_everything->add_controller( 'post_type', &$latex_post_type_controller );
+ *      $latex_everything->add_controller( 'post_type', $latex_post_type_controller );
  *
  * These controllers need to define certain methods to work
  * 
@@ -70,7 +70,7 @@ class Latex_Everything {
         $this->controllers = array();
     }
 
-    function add_controller( $name, $controller ) {
+    function add_controller( $name, &$controller ) {
         $this->controllers[$name] = $controller;
     }
 

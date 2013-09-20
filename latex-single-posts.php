@@ -4,7 +4,7 @@ include_once('class-latex-document.php');
 global $latex_everything;
 $latex_single_post_controller = new LE_Latex_Single_Post_Controller();
 
-$latex_everything->add_controller( 'single_post', &$latex_single_post_controller );
+$latex_everything->add_controller( 'single_post', $latex_single_post_controller );
 
 class LE_Latex_Single_Post_Controller {
     function documents_for_post( $post_id ) {
