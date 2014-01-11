@@ -171,11 +171,14 @@ and the author will try to get back to you.
 
 == Changelog ==
 
+= 1.3 =
+* Fixed a bug in the add_controller method.
+
 = 1.2 =
-* Changed the URL at which the PDFs for new posts and post types are saved. This
-  prevents the PDF for a post entitled "Post" being overwritten by the PDF for
-  the post type "Post". Existing PDFs and updates to them will stay at their
-  current URL.
+* Changed the URL at which the PDFs for new posts and post types are
+  saved. This prevents the PDF for a post entitled "Post" being
+  overwritten by the PDF for the post type "Post". Existing PDFs and
+  updates to them will stay at their current URL.
 
 = 1.1 =
 * Fixed a bug where PDFs for custom post types would not be generated.
@@ -185,9 +188,13 @@ and the author will try to get back to you.
 
 == Upgrade Notice ==
 
-= 1.2 =
-This version changes the URL at which new PDFs are written. This will not affect
-existing PDFs or updates to them, which will remain at their current URL.
+= 1.3 =
+This version fixes a bug in the add_controller method that creates
+errors in some version of PHP.
+
+= 1.2 = This version changes the URL at which new PDFs are written.
+This will not affect existing PDFs or updates to them, which will
+remain at their current URL.
 
 = 1.1 =
 This version fixes a bug where PDFs for custom post types would not be generated.
