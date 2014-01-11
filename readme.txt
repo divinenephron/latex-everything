@@ -12,6 +12,9 @@ Produce PDF documents of everything on your site with Latex.
 
 == Description ==
 
+(As of January 2014 this plugin is unsupported. You can continue
+to download and use it, but no further updates will be released.)
+
 Latex Everything can produce PDF documents of everything on your site with
 Latex. Or at least everything worth putting into a PDF.
 
@@ -44,11 +47,14 @@ documents for pages, categories and others) see the [Frequently Asked Questions]
 
 = Why isn't this working? =
 
-If something isn't working, check this FAQ for a relevant answer. If there isn't one,
-create a new topic in the [plugin forum][forum] and the author will try to get back to you.
+If something isn't working, check this FAQ for a relevant answer, or
+the [plugin forum][forum]. Since this plugin is now unsupported, if
+you've found a bug the original author won't fix it, but you are
+welcome to create and distribute your own version of this plugin so
+long as you comply with its GPL license.
 
-[forum]: http://wordpress.org/tags/latex-everything?forum_id=10#postform
-	"The forum where questions can be asked about Latex Everything."
+[forum]: http://wordpress.org/tags/latex-everything?forum_id=10
+	"The forum where questions have been asked about Latex Everything."
 
 = How do I typeset things besides posts? =
 
@@ -72,7 +78,7 @@ You need to know what sort of document you're looking for when getting its url.
 = When are the PDF files generated? =
 
 PDF files that contain a post are updated when it is saved. PDF files are also
-generated in bulk after the plugin is activated (this uses WP-Cron, so it takes
+generated in bulk after the plugin is activated (this uses WP-Cron, so it can take
 a while). If you have a large number of posts and want to generate PDF files for
 all of them, deactivate and reactivate the plugin, then wait.
 
@@ -156,13 +162,18 @@ how to make your own.
 
 = How can I extend this? =
 
-The plugin has been built with the intention of being extensible. The internals
-have documentation in comments, and if you want to know how to do something that
-isn't obvious, create a new topic in the [plugin forum][forum]
-and the author will try to get back to you.
+If you want to extend Latex Everything, fork it on [Github][github].
 
-[forum]: http://wordpress.org/tags/latex-everything?forum_id=10#postform
-	"The forum where questions can be asked about Latex Everything."
+[github]: https://github.com/divinenephron/latex-everything
+
+= What do you mean this plugin is unsupported? =
+
+As of January 2014 the original author of this plugin won't release
+any more versions of this plugin. You can still download and use the
+plugin, but no new features or bugfixes will be made, and it may
+become incompatable with, or even break future versions of Wordpress.
+The author will also no longer answer questions about how to use the
+plugin.
 
 == Screenshots ==
 
