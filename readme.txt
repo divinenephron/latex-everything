@@ -2,7 +2,7 @@
 Contributors: divinenephron
 Tags: latex, pdf, attachment
 Requires at least: 3.0
-Tested up to: 3.4.1
+Tested up to: 3.8.0
 Version: 1.3
 Stable tag: 1.3
 License: GPLv2 or later
