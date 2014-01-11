@@ -95,7 +95,7 @@ class LE_Latex_Document {
     function generate() {
         // Find pdflatex
         if ( !$this->pdflatex_path = exec( 'which pdflatex' ) )
-            return new WP_Error( 'LE_Latex_Document::__construct', 'pdflatex not found' );
+            return new WP_Error( 'LE_Latex_Document::__construct', 'pdflatex not found. $PATH is ' . getenv('path') );
 
         // Generate single latex files for each of a term's posts, because Latex
         // wasn't designed to generate multi-article documents.
@@ -320,8 +320,9 @@ class LE_Latex_Multiple_Document extends LE_Latex_Document {
      */
     function typeset_all_files () {
         // Find pdftk
-        if ( !$this->pdftk_path = exec( 'which pdftk' ) )
-            return new WP_Error( 'LE_Latex_Term_Document::__construct', 'pdftk not found' );
+        if ( !$this->pdftk_path = exec( 'which pdftk' ) ) {
+            return new WP_Error( 'LE_Latex_Term_Document::__construct', 'pdftk not found. $PATH is ' . getenv('path') );
+        }
 
         // Get a temporary filename for the concatenated pdf.
         if ( !$tmp_file = tempnam( sys_get_temp_dir(), 'le-' ) )
